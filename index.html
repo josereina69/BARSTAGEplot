@@ -18,9 +18,11 @@
             <div class="export-menu">
                 <button class="btn"><i class="fas fa-share-square"></i> Exportar</button>
             </div>
-            <button class="btn"><i class="fas fa-cog"></i> Preferencias</button>
+            <button class="btn" id="preferences-btn"><i class="fas fa-cog"></i> Preferencias</button>
         </div>
         
+        <div id="project-info-display">
+            </div>
         <button id="theme-toggle" class="btn theme-day" title="Cambiar Tema">
             <i class="fas fa-moon"></i> Día/Noche
         </button>
@@ -79,27 +81,24 @@
                         <div id="category-general" class="palette-category active">
                             <div class="stage-icon" draggable="true" data-type="speaker"><i class="fas fa-volume-up"></i> Caja</div>
                             <div class="stage-icon" draggable="true" data-type="monitor"><i class="fas fa-headset"></i> Monitor</div>
-                            <div class="stage-icon" draggable="true" data-type="mixer"><i class="fas fa-sliders-h"></i> Mesa FOH</div>
-                            <div class="stage-icon" draggable="true" data-type="amp"><i class="fas fa-box"></i> Ampli</div>
-                            <div class="stage-icon" draggable="true" data-type="stand"><i class="fas fa-shoe-prints"></i> Pie</div>
-                            <div class="stage-icon" draggable="true" data-type="cable"><i class="fas fa-link"></i> Multipar</div>
-                            <div class="stage-icon" draggable="true" data-type="platform"><i class="fas fa-ruler-horizontal"></i> Tarima</div>
-                            <div class="stage-icon" draggable="true" data-type="text"><i class="fas fa-font"></i> Texto Libre</div>
+                            <div class="stage-icon" draggable="true" data-type="amp"><i class="fas fa-cube"></i> Amplificador</div>
+                            <div class="stage-icon" draggable="true" data-type="keyboard"><i class="fas fa-keyboard"></i> Teclado</div>
+                            <div class="stage-icon" draggable="true" data-type="drums"><i class="fas fa-drum"></i> Batería</div>
+                            <div class="stage-icon" draggable="true" data-type="percussion"><i class="fas fa-bong"></i> Percusión</div>
+                            <div class="stage-icon" draggable="true" data-type="riser"><i class="fas fa-layer-group"></i> Riser</div>
+                            <div class="stage-icon" draggable="true" data-type="text"><i class="fas fa-font"></i> Texto</div>
                         </div>
 
                         <div id="category-mics" class="palette-category">
-                            <div class="stage-icon" draggable="true" data-type="vocal-mic"><i class="fas fa-microphone-alt"></i> Vocal</div>
-                            <div class="stage-icon" draggable="true" data-type="kick-mic"><i class="fas fa-drum"></i> Bombo</div>
-                            <div class="stage-icon" draggable="true" data-type="condenser"><i class="fas fa-microphone-lines"></i> Condensador</div>
-                            <div class="stage-icon" draggable="true" data-type="headset-mic"><i class="fas fa-microphone-slash"></i> Headset</div>
+                            <div class="stage-icon" draggable="true" data-type="vocal-mic"><i class="fas fa-microphone"></i> Vocal</div>
+                            <div class="stage-icon" draggable="true" data-type="instrument-mic"><i class="fas fa-microphone-alt"></i> Instr.</div>
+                            <div class="stage-icon" draggable="true" data-type="di"><i class="fas fa-plug"></i> DI</div>
                         </div>
 
                         <div id="category-instruments" class="palette-category">
-                            <div class="stage-icon" draggable="true" data-type="drumkit"><i class="fas fa-drum-steelpan"></i> Batería</div>
-                            <div class="stage-icon" draggable="true" data-type="keyboard"><i class="fas fa-piano"></i> Teclado</div>
-                            <div class="stage-icon" draggable="true" data-type="bass"><i class="fas fa-bass-guitar"></i> Bajo</div>
                             <div class="stage-icon" draggable="true" data-type="guitar"><i class="fas fa-guitar"></i> Guitarra</div>
-                            <div class="stage-icon" draggable="true" data-type="percussion"><i class="fas fa-bong"></i> Percusión</div>
+                            <div class="stage-icon" draggable="true" data-type="bass"><i class="fas fa-bass-drum"></i> Bajo</div>
+                            <div class="stage-icon" draggable="true" data-type="sax"><i class="fas fa-saxophone"></i> Saxo</div>
                         </div>
                         
                         <div id="category-shapes" class="palette-category">
@@ -107,53 +106,56 @@
                             <div class="stage-icon" draggable="true" data-type="circle"><i class="far fa-circle"></i> Círculo</div>
                             <div class="stage-icon" draggable="true" data-type="triangle"><i class="fas fa-caret-up"></i> Triángulo</div>
                         </div>
+
                     </div>
+
                 </aside>
-                
+
                 <main id="canvas-area">
                     <div id="stage-canvas" class="a4-proportional">
                         <p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Lienzo Proporcional A4)</p>
                     </div>
                 </main>
-                
+
                 <aside id="element-config-panel">
                     <h3>Configuración <i class="fas fa-palette"></i></h3>
                     <p class="config-placeholder">Selecciona un elemento en el plano para configurar sus propiedades.</p>
-
                     <div id="element-controls" style="display: none;">
-                        <h4><span id="selected-element-title">Elemento</span></h4>
+                        <h4><span id="selected-element-title"></span></h4>
                         
-                        <label for="color-picker">Color de Fondo:</label>
-                        <input type="color" id="color-picker" value="#3498db">
+                        <label for="color-picker">Color:</label>
+                        <input type="color" id="color-picker">
 
                         <label for="shape-selector">Forma:</label>
                         <select id="shape-selector">
-                            <option value="square">Cuadrado</option>
+                            <option value="square">Cuadrado/Rectángulo</option>
                             <option value="circle">Círculo</option>
                         </select>
-
+                        
                         <label for="z-index-selector">Capa (Z-Index):</label>
                         <input type="number" id="z-index-selector" min="1" max="100" value="10">
-                        
-                        <button id="delete-element-btn" class="btn delete-btn full-width"><i class="fas fa-trash"></i> Eliminar Elemento</button>
+
+                        <button id="delete-element-btn" class="btn primary-btn" style="background-color: #dc3545;">
+                            <i class="fas fa-trash"></i> Eliminar
+                        </button>
                     </div>
                 </aside>
-                
             </section>
+
             <section id="input-list" class="tab-screen">
-                <h2><i class="fas fa-microphone-alt"></i> Lista de Canales (Input List)</h2>
-                <button class="btn primary-btn" id="add-input-channel-btn"><i class="fas fa-plus"></i> Añadir Canal</button>
+                <h2><i class="fas fa-list-alt"></i> Lista de Canales (Patch List)</h2>
+                <button id="add-input-channel-btn" class="btn primary-btn"><i class="fas fa-plus"></i> Añadir Canal</button>
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Ch</th>
-                            <th>Nombre de canal</th>
-                            <th>Mic/DI</th>
-                            <th>Phantom</th>
-                            <th>Pie</th>
-                            <th>Sub-Snake</th>
-                            <th>Notas</th>
-                            <th><i class="fas fa-trash"></i></th>
+                            <th style="width: 5%;">Ch</th>
+                            <th style="width: 20%;">Nombre de canal</th>
+                            <th style="width: 20%;">Mic/DI</th>
+                            <th style="width: 5%;">Phantom</th>
+                            <th style="width: 10%;">Pie</th>
+                            <th style="width: 20%;">Sub-Snake</th>
+                            <th style="width: 15%;">Notas</th>
+                            <th style="width: 5%;"><i class="fas fa-trash"></i></th>
                         </tr>
                     </thead>
                     <tbody id="input-list-body">
@@ -162,18 +164,18 @@
             </section>
 
             <section id="sends-list" class="tab-screen">
-                <h2><i class="fas fa-headphones-alt"></i> Lista de Envíos (Monitor Sends / AUX)</h2>
-                <button class="btn primary-btn" id="add-sends-btn"><i class="fas fa-plus"></i> Añadir Envío</button>
+                <h2><i class="fas fa-volume-up"></i> Envíos de Monitores (Monitor Sends)</h2>
+                <button id="add-sends-btn" class="btn primary-btn"><i class="fas fa-plus"></i> Añadir Envío</button>
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Nº</th>
-                            <th>Nombre del Envío</th>
-                            <th>Tipo</th>
-                            <th>Input/Aux</th>
-                            <th>Stereo (Sí/No)</th>
-                            <th>Notas</th>
-                            <th><i class="fas fa-trash"></i></th>
+                            <th style="width: 5%;">Nº</th>
+                            <th style="width: 20%;">Nombre del Envío</th>
+                            <th style="width: 15%;">Tipo</th>
+                            <th style="width: 15%;">Input/Aux</th>
+                            <th style="width: 5%;">Stereo</th>
+                            <th style="width: 35%;">Notas</th>
+                            <th style="width: 5%;"><i class="fas fa-trash"></i></th>
                         </tr>
                     </thead>
                     <tbody id="sends-list-body">
@@ -210,7 +212,46 @@
                 </div>
             </section>
         </div>
-    </div>
+        
+        <section id="preferences-screen" class="app-screen">
+            <div id="preferences-content">
+                <h2><i class="fas fa-cog"></i> Preferencias del Proyecto</h2>
+                
+                <div class="pref-section">
+                    <h3>Datos Iniciales del Proyecto</h3>
+                    
+                    <form id="project-preferences-form">
+                        <label for="pref-project-name">Nombre del proyecto:</label>
+                        <input type="text" id="pref-project-name" required>
+
+                        <label for="pref-tour-name">Nombre de la gira:</label>
+                        <input type="text" id="pref-tour-name">
+
+                        <label for="pref-date">Fecha:</label>
+                        <input type="date" id="pref-date">
+
+                        <label for="pref-stage-size">Tamaño de escenario (Ancho x Alto):</label>
+                        <input type="text" id="pref-stage-size" placeholder="Ej: 8m x 6m" required>
+
+                        <label for="pref-input-channels">Canales de entrada:</label>
+                        <input type="number" id="pref-input-channels" min="0" required>
+
+                        <label for="pref-sends-count">Cantidad de envíos:</label>
+                        <input type="number" id="pref-sends-count" min="0" required>
+                        
+                        <button type="submit" class="btn primary-btn"><i class="fas fa-save"></i> Guardar Cambios</button>
+                    </form>
+                </div>
+                
+                <div class="pref-section">
+                    <h3>Otros Ajustes</h3>
+                    <p>Modo Día/Noche: Usa el botón en la barra superior para cambiar el tema visual.</p>
+                </div>
+                
+                <button id="close-preferences-btn" class="btn"><i class="fas fa-times"></i> Cerrar</button>
+            </div>
+        </section>
+        </div>
 
     <script src="script.js"></script>
 </body>
