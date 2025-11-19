@@ -64,6 +64,33 @@ body {
     gap: 10px;
 }
 
+/* INICIO NUEVO: INFO DEL PROYECTO EN BARRA SUPERIOR */
+#project-info-display {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-left: auto; /* Empuja los elementos a la derecha */
+    margin-right: 20px;
+}
+
+#project-info-display span {
+    font-size: 0.85em;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: nowrap;
+}
+
+#project-info-display strong {
+    color: var(--color-header-text);
+    font-weight: 600;
+    margin-left: 5px;
+}
+
+/* NUEVO: Ocultar el info display en la pantalla inicial */
+body.init-screen #project-info-display {
+    display: none;
+}
+/* FIN NUEVO */
+
 /* --- BOTONES --- */
 .btn {
     padding: 8px 15px;
@@ -106,19 +133,23 @@ body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-#project-form label, #project-form input {
+#project-form label, #project-form input,
+/* INICIO MODIFICACIÓN: Añadir estilos al formulario de preferencias */
+#project-preferences-form label, #project-preferences-form input { 
     display: block;
     width: 100%;
     margin-bottom: 10px;
 }
 
-#project-form input {
+#project-form input,
+#project-preferences-form input { 
     padding: 8px;
     border: 1px solid var(--color-border);
     background-color: var(--color-background);
     color: var(--color-text);
     border-radius: 4px;
 }
+/* FIN MODIFICACIÓN */
 
 #project-init-screen h2 {
     margin-bottom: 20px;
@@ -174,6 +205,62 @@ body {
     display: flex;
     flex-direction: column;
 }
+
+/* INICIO NUEVO: Estilos de la Pantalla de Preferencias (Overlay) */
+#preferences-screen {
+    position: absolute; 
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    min-height: calc(100vh - 60px); /* Ajustar según la altura de tu top-bar */
+    z-index: 100; 
+    background-color: var(--color-background);
+    padding: 50px;
+    align-items: center; 
+    justify-content: center;
+    overflow-y: auto; 
+}
+
+#preferences-content {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    max-width: 500px;
+    width: 100%;
+    padding: 30px;
+    background-color: var(--color-surface);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#preferences-screen h2 {
+    margin-bottom: 10px;
+    color: var(--color-primary);
+    width: 100%;
+    text-align: center;
+}
+
+.pref-section {
+    padding: 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background-color: var(--color-background);
+}
+
+#project-preferences-form input {
+    margin-bottom: 15px;
+}
+
+#project-preferences-form button {
+    margin-top: 10px;
+}
+
+#close-preferences-btn {
+    margin-top: 20px;
+    align-self: flex-start;
+}
+/* FIN NUEVO */
 
 /* --- PESTAÑA PLANO --- */
 #stage-plot {
@@ -235,7 +322,7 @@ body {
     color: var(--color-text);
     opacity: 0.6;
     transition: opacity 0.2s, background-color 0.2s, border-radius 0.2s;
-    line-height: 1; 
+    line-height: 1;
     flex-shrink: 0; 
 }
 
@@ -247,99 +334,198 @@ body {
 
 .palette-tab-button.active {
     opacity: 1;
-    color: var(--color-primary);
     background-color: var(--color-button-bg);
     border-radius: 4px;
 }
 
 #palette-content {
-    flex-grow: 1;
-    overflow-y: auto; /* SCROLL VERTICAL AQUÍ */
-    padding: 0 15px; 
+    overflow-y: auto; /* Scroll vertical para el contenido */
+    padding: 0 15px;
+    padding-bottom: 20px; 
 }
 
 .palette-category {
     display: none;
-    flex-direction: column;
-    gap: 8px; 
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
 }
 
 .palette-category.active {
-    display: flex;
+    display: grid;
 }
 
 .stage-icon {
     padding: 10px;
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-border);
+    background-color: var(--color-button-bg);
     border-radius: 4px;
     cursor: grab;
     text-align: center;
     font-size: 0.9em;
     transition: background-color 0.2s;
-    margin-bottom: 0px; 
+    border: 1px solid var(--color-border); 
 }
 
 .stage-icon:hover {
     background-color: var(--color-button-hover);
 }
 
+.stage-icon i {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 1.3em;
+}
+
+/* --- CANVAS AREA --- */
 #canvas-area {
     flex-grow: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     background-color: var(--color-background);
+    padding: 20px;
+    overflow: auto; /* Permite scroll si el lienzo es más grande */
 }
 
 #stage-canvas {
-    border: 1px solid #000; 
-    background-color: #fff; 
-    width: 842px; 
-    height: 595px;
+    position: relative;
+    background-color: white;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-    position: relative; 
-    overflow: hidden;
+    margin: 0 auto; 
+    overflow: hidden; 
+    border-radius: 4px;
+    color: #333; 
+}
+
+/* Proporción A4 (210mm x 297mm) en landscape: 1.414 */
+/* Usaremos una proporción fija para simplificar: 1.4:1 (ancho:alto) */
+#stage-canvas.a4-proportional {
+    width: 800px;
+    height: 570px; /* 800 / 1.4 */
 }
 
 .canvas-placeholder {
-    color: #999;
-    text-align: center;
-    padding-top: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #aaa;
+    font-style: italic;
 }
 
-/* --- Estilos para Elementos en el Plano --- */
+/* --- ELEMENT CONFIG PANEL --- */
+#element-config-panel {
+    width: 250px;
+    min-width: 250px;
+    padding: 15px;
+    border-left: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    border-radius: 0 8px 8px 0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    flex-shrink: 0; 
+}
+
+#element-config-panel h3 {
+    margin-bottom: 15px;
+    color: var(--color-primary);
+}
+
+#element-controls label {
+    display: block;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+#element-controls input, #element-controls select {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 15px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-background);
+    color: var(--color-text);
+    border-radius: 4px;
+}
+
+#selected-element-title {
+    font-weight: bold;
+    color: var(--color-primary);
+    display: block;
+    margin-bottom: 15px;
+}
+
+/* --- ELEMENTOS EN EL LIENZO --- */
 .stage-element {
     position: absolute;
-    padding: 8px;
-    background-color: rgba(255, 255, 255, 0.8);
-    border: 1px solid var(--color-text);
-    border-radius: 4px;
-    cursor: grab;
-    font-size: 0.8em;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    min-width: 50px;
+    padding: 10px;
+    min-width: 30px; 
     min-height: 30px; 
+    color: white; 
+    background-color: #3498db;
+    border-radius: 4px;
+    cursor: move;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column; 
     text-align: center;
-    transition: box-shadow 0.2s, border-color 0.2s, transform 0.3s;
+    font-size: 0.8em;
+    font-weight: bold;
+    border: 1px solid #333;
     user-select: none;
+    transition: box-shadow 0.1s; 
+}
+
+.stage-element i {
+    font-size: 1.5em;
+    margin-bottom: 2px;
+}
+
+.stage-element.shape-circle {
+    border-radius: 50%;
+}
+
+.stage-element.shape-square {
+    border-radius: 4px;
+}
+
+.stage-element[data-type="text"] {
+    background-color: transparent !important;
+    color: var(--color-text);
+    border: 1px dashed var(--color-border);
+    padding: 2px 5px;
+    min-width: auto;
+    min-height: auto;
+    font-weight: normal;
+}
+
+.stage-element[data-type="text"] i {
+    display: none;
+}
+
+/* Estado de arrastre */
+.stage-element.dragging {
+    opacity: 0.5;
+}
+
+/* Estado de selección */
+.stage-element.selected {
+    border: 2px solid var(--color-primary);
+    box-shadow: 0 0 8px var(--color-primary);
+    cursor: default;
+    position: relative;
 }
 
 .stage-element:hover {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
-.stage-element.selected {
-    border: 2px solid var(--color-primary);
-    box-shadow: 0 0 8px var(--color-primary);
-    cursor: default;
-    position: relative; 
+body.dark-mode .stage-element {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border: 1px solid #333;
 }
 
-body.dark-mode .stage-element {
-    background-color: rgba(255, 255, 255, 0.9); 
-    color: #333; 
-    border: 1px solid #333; 
+body.dark-mode .stage-element[data-type="text"] {
+    color: var(--color-text);
+    background-color: transparent !important;
 }
 
 /* --- ESTILOS PARA MANEJADORES DE TRANSFORMACIÓN --- */
@@ -356,12 +542,12 @@ body.dark-mode .stage-element {
 .resizer.bottom-right {
     bottom: -5px;
     right: -5px;
-    cursor: nwse-resize; 
+    cursor: nwse-resize;
 }
 
 .rotator {
     position: absolute;
-    top: -20px; 
+    top: -20px;
     left: 50%;
     transform: translateX(-50%);
     width: 12px;
@@ -369,7 +555,7 @@ body.dark-mode .stage-element {
     background: var(--color-surface);
     border: 2px solid var(--color-primary);
     border-radius: 50%;
-    cursor: crosshair; 
+    cursor: crosshair;
     z-index: 1001;
 }
 
@@ -391,6 +577,11 @@ body.dark-mode .stage-element {
     font-weight: 600;
 }
 
+.data-table td[contenteditable="true"]:focus {
+    background-color: var(--color-background);
+    outline: 1px solid var(--color-primary);
+}
+
 .text-editor {
     min-height: 500px;
     border: 1px solid var(--color-border);
@@ -400,68 +591,7 @@ body.dark-mode .stage-element {
     color: var(--color-text);
 }
 
-/* --- Estilos para el Panel de Configuración de Elementos --- */
-#element-config-panel {
-    width: 250px; /* CORREGIDO a 250px */
-    min-width: 250px;
-    padding: 10px 15px; 
-    border-left: 1px solid var(--color-border);
-    background-color: var(--secondary-bg); 
-    flex-shrink: 0;
-    overflow-y: auto; /* Permite scroll vertical interno si es necesario */
-    border-radius: 0 8px 8px 0; 
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); 
-}
-
-#element-config-panel label {
-    display: block;
-    margin-top: 8px; 
-    margin-bottom: 3px; 
-    font-size: 0.85em; 
-    font-weight: bold;
-}
-
-#element-config-panel input[type="color"], 
-#element-config-panel select, 
-#element-config-panel input[type="number"] {
-    width: 100%;
-    padding: 3px; 
-    box-sizing: border-box;
-    font-size: 0.9em; 
-}
-
-/* --- Estilos de Formas --- */
-.stage-element.shape-circle {
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    overflow: hidden; 
-}
-
-/* --- Estilos específicos para el elemento de Texto --- */
-.stage-element[data-type="text"] {
-    background: none !important; 
-    border: none !important;     
-    padding: 2px 5px !important; 
-    box-shadow: none !important; 
-    color: var(--color-text);    
-    font-weight: bold;           
-    cursor: grab;
-    text-align: left;
-}
-
-.stage-element[data-type="text"].selected {
-    border: 1px dotted var(--color-primary) !important; 
-    padding: 1px 4px !important;
-    box-shadow: none !important;
-}
-
-
-/* --- Nuevos estilos para la tabla de canales --- */
-
-/* Estilo para los nuevos campos de texto dentro de las celdas (como el Mic/DI) */
+/* Estilos de la lista de canales (Input List) */
 .data-table .mic-input {
     width: 100%;
     padding: 5px;
@@ -498,41 +628,28 @@ body.dark-mode .stage-element {
     background: transparent;
     color: var(--color-text);
     font-size: 0.9em;
-    height: 100%;
-    box-sizing: border-box;
 }
 
 .data-table .subsnake-color-picker {
-    width: 30px; 
-    height: 30px; 
-    border: none;
+    width: 30px;
+    height: 30px;
     padding: 0;
-    margin-right: 5px;
+    border: none;
     cursor: pointer;
     background: transparent;
+    margin: 0 5px;
 }
 
-/* Asegura que el color del texto sea visible en la celda del subsnake */
-body.dark-mode .data-table .subsnake-name {
-    color: var(--color-text);
+.data-table .delete-btn {
+    background-color: #dc3545;
+    color: white;
+    padding: 5px 10px;
+    font-size: 0.8em;
 }
 
-.data-table td[contenteditable="true"] {
-    cursor: text;
-    background-color: var(--color-background);
-}
-/* --- Estilos para Drag & Drop de Filas --- */
-.data-table tr[draggable="true"] {
-    cursor: grab;
-}
-
-.data-table tr[draggable="true"]:active {
-    cursor: grabbing;
-}
-
+/* Lógica del Drag and Drop en las tablas */
 .data-table tr.dragging {
     opacity: 0.5;
-    /* Usamos un color de fondo para indicar que está "levantada" */
     background-color: var(--color-button-hover) !important; 
 }
 
@@ -564,12 +681,26 @@ body.dark-mode .data-table input[type="text"],
 body.dark-mode .data-table select,
 body.dark-mode .data-table .mic-input,
 body.dark-mode .data-table .subsnake-name {
-    background-color: var(--color-surface); 
-    color: var(--color-text);
+    background-color: var(--color-surface) !important; /* Fondo de la superficie de las pestañas */
+    color: var(--color-text) !important;
 }
 
-/* 3. Mejora la visibilidad de los checkboxes de sistema (Phantom/Stereo) */
-/* El filtro invierte el color para que un checkbox blanco sobre fondo oscuro se vea bien */
-body.dark-mode .data-table input[type="checkbox"] {
-    filter: invert(0.9) hue-rotate(180deg); 
+body.dark-mode .data-table .mic-input,
+body.dark-mode .data-table select {
+    border: 1px solid var(--color-border) !important;
+}
+
+/* 3. Estilo para el input en foco en modo oscuro */
+body.dark-mode .data-table td[contenteditable="true"]:focus {
+    background-color: var(--color-surface);
+}
+
+/* 4. Estilo de celda Phantom Activa */
+.data-table .phantom-active {
+    background-color: #dc354520; /* Fondo rojo claro */
+    transition: background-color 0.3s;
+}
+
+body.dark-mode .data-table .phantom-active {
+    background-color: #dc354540; /* Fondo rojo más oscuro en dark mode */
 }
