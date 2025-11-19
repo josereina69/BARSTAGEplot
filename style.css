@@ -1,0 +1,575 @@
+/* Base de la aplicación */
+:root {
+    /* Variables para Modo Día (Light) */
+    --color-primary: #007bff;
+    --color-text: #333;
+    --color-background: #f4f7f9;
+    --color-surface: #ffffff;
+    --color-border: #ddd;
+    --color-button-bg: #e9ecef;
+    --color-button-hover: #cfd4da;
+    --color-header-bg: #212529;
+    --color-header-text: #fff;
+    --secondary-bg: var(--color-surface); 
+}
+
+/* Variables para Modo Noche (Dark) */
+body.dark-mode {
+    --color-primary: #4a90e2;
+    --color-text: #f0f0f0;
+    --color-background: #1a1a2e;
+    --color-surface: #2c2c43;
+    --color-border: #444;
+    --color-button-bg: #3a3a55;
+    --color-button-hover: #4d4d6b;
+    --color-header-bg: #0f101a;
+    --secondary-bg: var(--color-surface); 
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--color-background);
+    color: var(--color-text);
+    transition: background-color 0.3s, color 0.3s;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow-x: hidden; 
+}
+
+/* --- BARRA SUPERIOR (HEADER) --- */
+#top-bar {
+    background-color: var(--color-header-bg);
+    color: var(--color-header-text);
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#top-bar h1 {
+    font-size: 1.5em;
+    margin-right: 20px;
+}
+
+.file-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* --- BOTONES --- */
+.btn {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s, color 0.2s;
+    background-color: var(--color-button-bg);
+    color: var(--color-text);
+}
+
+.btn:hover {
+    background-color: var(--color-button-hover);
+}
+
+.primary-btn {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.primary-btn:hover {
+    background-color: #0056b3;
+}
+
+/* --- CONTENEDOR PRINCIPAL Y PESTAÑAS --- */
+#main-container {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+/* Pantalla de inicio de proyecto */
+#project-init-screen {
+    max-width: 500px;
+    margin: 50px auto;
+    padding: 30px;
+    background-color: var(--color-surface);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#project-form label, #project-form input {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+#project-form input {
+    padding: 8px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-background);
+    color: var(--color-text);
+    border-radius: 4px;
+}
+
+#project-init-screen h2 {
+    margin-bottom: 20px;
+    color: var(--color-primary);
+}
+
+/* Navegación de Pestañas */
+#main-nav {
+    display: none;
+    border-bottom: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    padding-left: 20px;
+}
+
+.tab-button {
+    padding: 12px 20px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--color-text);
+    font-weight: 600;
+    cursor: pointer;
+    margin-right: 5px;
+    transition: color 0.2s, border-bottom-color 0.2s;
+}
+
+.tab-button:hover {
+    color: var(--color-primary);
+}
+
+.tab-button.active {
+    border-bottom-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+/* Contenido de Pestañas */
+#tab-content {
+    flex-grow: 1;
+    padding: 20px;
+    display: flex;
+}
+
+.app-screen, .tab-screen {
+    width: 100%;
+    display: none;
+    background-color: var(--color-surface);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.app-screen.active, .tab-screen.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- PESTAÑA PLANO --- */
+#stage-plot {
+    flex-direction: row; 
+    gap: 0; 
+    height: calc(100vh - 170px);
+    max-height: 800px;
+    padding: 0; 
+    background-color: transparent; 
+    box-shadow: none; 
+    overflow-x: hidden; 
+}
+
+/* --- ELEMENT PALETTE (CORREGIDO ANCHO Y SCROLL) --- */
+#element-palette {
+    width: 250px; /* ANCHO CORREGIDO */
+    min-width: 250px; 
+    
+    padding: 10px 0 10px 0; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; /* Oculta el scroll principal, el scroll va en #palette-content */
+    
+    border-right: 1px solid var(--color-border);
+    background-color: var(--color-surface); 
+    border-radius: 8px 0 0 8px; 
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); 
+    flex-shrink: 0; 
+}
+
+#element-palette h3 {
+    margin-bottom: 15px;
+    color: var(--color-primary);
+    padding: 0 15px;
+}
+
+/* NUEVOS ESTILOS PARA CATEGORÍAS DE LA PALETA */
+#palette-tabs {
+    display: flex;
+    flex-wrap: nowrap; 
+    padding: 0 5px 10px 5px; 
+    border-bottom: 1px solid var(--color-border);
+    overflow-x: auto; 
+    margin-bottom: 10px;
+    
+    -ms-overflow-style: none; 
+    scrollbar-width: none; 
+}
+#palette-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.palette-tab-button {
+    padding: 8px 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1em;
+    color: var(--color-text);
+    opacity: 0.6;
+    transition: opacity 0.2s, background-color 0.2s, border-radius 0.2s;
+    line-height: 1; 
+    flex-shrink: 0; 
+}
+
+.palette-tab-button:hover {
+    opacity: 1;
+    background-color: var(--color-button-hover);
+    border-radius: 4px;
+}
+
+.palette-tab-button.active {
+    opacity: 1;
+    color: var(--color-primary);
+    background-color: var(--color-button-bg);
+    border-radius: 4px;
+}
+
+#palette-content {
+    flex-grow: 1;
+    overflow-y: auto; /* SCROLL VERTICAL AQUÍ */
+    padding: 0 15px; 
+}
+
+.palette-category {
+    display: none;
+    flex-direction: column;
+    gap: 8px; 
+}
+
+.palette-category.active {
+    display: flex;
+}
+
+.stage-icon {
+    padding: 10px;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    cursor: grab;
+    text-align: center;
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+    margin-bottom: 0px; 
+}
+
+.stage-icon:hover {
+    background-color: var(--color-button-hover);
+}
+
+#canvas-area {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--color-background);
+}
+
+#stage-canvas {
+    border: 1px solid #000; 
+    background-color: #fff; 
+    width: 842px; 
+    height: 595px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    position: relative; 
+    overflow: hidden;
+}
+
+.canvas-placeholder {
+    color: #999;
+    text-align: center;
+    padding-top: 50%;
+}
+
+/* --- Estilos para Elementos en el Plano --- */
+.stage-element {
+    position: absolute;
+    padding: 8px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid var(--color-text);
+    border-radius: 4px;
+    cursor: grab;
+    font-size: 0.8em;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    min-width: 50px;
+    min-height: 30px; 
+    text-align: center;
+    transition: box-shadow 0.2s, border-color 0.2s, transform 0.3s;
+    user-select: none;
+}
+
+.stage-element:hover {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.stage-element.selected {
+    border: 2px solid var(--color-primary);
+    box-shadow: 0 0 8px var(--color-primary);
+    cursor: default;
+    position: relative; 
+}
+
+body.dark-mode .stage-element {
+    background-color: rgba(255, 255, 255, 0.9); 
+    color: #333; 
+    border: 1px solid #333; 
+}
+
+/* --- ESTILOS PARA MANEJADORES DE TRANSFORMACIÓN --- */
+.resizer {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--color-primary);
+    border: 1px solid white;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+}
+
+.resizer.bottom-right {
+    bottom: -5px;
+    right: -5px;
+    cursor: nwse-resize; 
+}
+
+.rotator {
+    position: absolute;
+    top: -20px; 
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 12px;
+    background: var(--color-surface);
+    border: 2px solid var(--color-primary);
+    border-radius: 50%;
+    cursor: crosshair; 
+    z-index: 1001;
+}
+
+/* --- PESTAÑAS DE TABLAS y RIDER --- */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.data-table th, .data-table td {
+    padding: 10px;
+    border: 1px solid var(--color-border);
+    text-align: left;
+}
+
+.data-table th {
+    background-color: var(--color-button-bg);
+    font-weight: 600;
+}
+
+.text-editor {
+    min-height: 500px;
+    border: 1px solid var(--color-border);
+    padding: 20px;
+    margin-top: 15px;
+    background-color: var(--color-surface);
+    color: var(--color-text);
+}
+
+/* --- Estilos para el Panel de Configuración de Elementos --- */
+#element-config-panel {
+    width: 250px; /* CORREGIDO a 250px */
+    min-width: 250px;
+    padding: 10px 15px; 
+    border-left: 1px solid var(--color-border);
+    background-color: var(--secondary-bg); 
+    flex-shrink: 0;
+    overflow-y: auto; /* Permite scroll vertical interno si es necesario */
+    border-radius: 0 8px 8px 0; 
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); 
+}
+
+#element-config-panel label {
+    display: block;
+    margin-top: 8px; 
+    margin-bottom: 3px; 
+    font-size: 0.85em; 
+    font-weight: bold;
+}
+
+#element-config-panel input[type="color"], 
+#element-config-panel select, 
+#element-config-panel input[type="number"] {
+    width: 100%;
+    padding: 3px; 
+    box-sizing: border-box;
+    font-size: 0.9em; 
+}
+
+/* --- Estilos de Formas --- */
+.stage-element.shape-circle {
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden; 
+}
+
+/* --- Estilos específicos para el elemento de Texto --- */
+.stage-element[data-type="text"] {
+    background: none !important; 
+    border: none !important;     
+    padding: 2px 5px !important; 
+    box-shadow: none !important; 
+    color: var(--color-text);    
+    font-weight: bold;           
+    cursor: grab;
+    text-align: left;
+}
+
+.stage-element[data-type="text"].selected {
+    border: 1px dotted var(--color-primary) !important; 
+    padding: 1px 4px !important;
+    box-shadow: none !important;
+}
+
+
+/* --- Nuevos estilos para la tabla de canales --- */
+
+/* Estilo para los nuevos campos de texto dentro de las celdas (como el Mic/DI) */
+.data-table .mic-input {
+    width: 100%;
+    padding: 5px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    box-sizing: border-box;
+    font-size: 0.9em;
+}
+
+.data-table select {
+    padding: 5px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Estilos de la celda Sub-Snake */
+.data-table .subsnake-cell {
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background-color 0.2s; /* Para el cambio de color */
+    height: 40px; /* Asegura la altura uniforme */
+}
+
+.data-table .subsnake-name {
+    flex-grow: 1;
+    padding: 5px 8px;
+    border: none;
+    background: transparent;
+    color: var(--color-text);
+    font-size: 0.9em;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.data-table .subsnake-color-picker {
+    width: 30px; 
+    height: 30px; 
+    border: none;
+    padding: 0;
+    margin-right: 5px;
+    cursor: pointer;
+    background: transparent;
+}
+
+/* Asegura que el color del texto sea visible en la celda del subsnake */
+body.dark-mode .data-table .subsnake-name {
+    color: var(--color-text);
+}
+
+.data-table td[contenteditable="true"] {
+    cursor: text;
+    background-color: var(--color-background);
+}
+/* --- Estilos para Drag & Drop de Filas --- */
+.data-table tr[draggable="true"] {
+    cursor: grab;
+}
+
+.data-table tr[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.data-table tr.dragging {
+    opacity: 0.5;
+    /* Usamos un color de fondo para indicar que está "levantada" */
+    background-color: var(--color-button-hover) !important; 
+}
+
+/* Indicador visual de la posición de arrastre (línea azul) */
+.data-table tr.drop-target-before {
+    border-top: 2px solid var(--color-primary);
+}
+
+.data-table tr.drop-target-after {
+    border-bottom: 2px solid var(--color-primary);
+}
+
+
+/* ---------------------------------------------------------------------- */
+/* --- SOLUCIÓN: VISIBILIDAD EN MODO NOCHE (Listas de Canales, Envíos, FOH) --- */
+/* ---------------------------------------------------------------------- */
+
+/* 1. Asegura que el texto en todas las celdas sea claro */
+body.dark-mode .data-table td,
+body.dark-mode .data-table th,
+/* Celdas editables */
+body.dark-mode .data-table td[contenteditable="true"] {
+    color: var(--color-text) !important; 
+    /* El !important ayuda a evitar que la herencia o reglas específicas más débiles lo anulen */
+}
+
+/* 2. Asegura que los inputs y selects tengan el fondo y color correctos */
+body.dark-mode .data-table input[type="text"],
+body.dark-mode .data-table select,
+body.dark-mode .data-table .mic-input,
+body.dark-mode .data-table .subsnake-name {
+    background-color: var(--color-surface); 
+    color: var(--color-text);
+}
+
+/* 3. Mejora la visibilidad de los checkboxes de sistema (Phantom/Stereo) */
+/* El filtro invierte el color para que un checkbox blanco sobre fondo oscuro se vea bien */
+body.dark-mode .data-table input[type="checkbox"] {
+    filter: invert(0.9) hue-rotate(180deg); 
+}
