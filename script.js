@@ -7,6 +7,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const projectForm = document.getElementById('project-form');
     const themeToggleButton = document.getElementById('theme-toggle');
     const body = document.body;
+    
+    // INICIO NUEVO: Variable para almacenar la configuración del proyecto
+    let projectConfig = {}; 
+    
+    // INICIO NUEVO: Referencias de Preferencias y Barra Superior
+    const preferencesBtn = document.getElementById('preferences-btn');
+    const preferencesScreen = document.getElementById('preferences-screen');
+    const closePreferencesBtn = document.getElementById('close-preferences-btn');
+    const projectInfoDisplay = document.getElementById('project-info-display');
+    const projectPreferencesForm = document.getElementById('project-preferences-form');
+    // FIN NUEVO
 
     // --- Referencias de Proyecto Inicial (CORREGIDO) ---
     // Usando los IDs de tu index.html: 'input-channels' y 'sends-count'
@@ -34,21 +45,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 2. Lógica del Formulario Inicial y Navegación de Pestañas ---
     
     initTheme();
+    body.classList.add('init-screen'); // NUEVO: Añadir clase para ocultar info en el header
     projectInitScreen.classList.add('active'); 
 
     projectForm.addEventListener('submit', (e) => {
         e.preventDefault();
         
-        // CORREGIDO: Obtener los números de canales y envíos con los IDs correctos
-        const numChannels = parseInt(document.getElementById('input-channels')?.value || 0);
-        const numSends = parseInt(document.getElementById('sends-count')?.value || 0);
+        // INICIO MODIFICACIÓN: Capturar y almacenar en la configuración global
+        projectConfig = {
+            projectName: document.getElementById('project-name').value,
+            tourName: document.getElementById('tour-name').value,
+            date: document.getElementById('date').value,
+            stageSize: document.getElementById('stage-size').value,
+            numInputChannels: parseInt(document.getElementById('input-channels')?.value || 0),
+            numSends: parseInt(document.getElementById('sends-count')?.value || 0)
+        };
+        // FIN MODIFICACIÓN
 
+        // 2. Ocultar pantalla inicial y mostrar navegación
         projectInitScreen.classList.remove('active');
         mainNav.style.display = 'flex';
+        body.classList.remove('init-screen'); // NUEVO: Mostrar info del header
         
-        // Inicializar las listas con los números ingresados
-        initializeInputList(numChannels);
-        initializeSendsList(numSends);
+        // 3. Inicializar las listas con los números ingresados
+        initializeInputList(projectConfig.numInputChannels);
+        initializeSendsList(projectConfig.numSends);
+        
+        updateProjectInfoDisplay(projectConfig); // NUEVO: Actualizar la info de la barra superior
 
         activateTab('stage-plot');
     });
@@ -436,53 +459,50 @@ document.addEventListener('DOMContentLoaded', () => {
             if (y < middle) {
                 inputListBody.insertBefore(draggedRow, row);
             } else {
-                inputListBody.insertBefore(draggedRow, row.nextElementSibling);
+                inputListBody.insertBefore(draggedRow, row.nextSibling);
             }
-
-            updateChannelNumbers(); 
+            
+            updateChannelNumbers();
         });
     }
+
+    // Agrega el listener del botón de añadir canal
+    addChannelBtn.addEventListener('click', () => {
+        const currentCount = inputListBody.querySelectorAll('tr').length;
+        const newRow = createChannelRow(currentCount + 1);
+        inputListBody.appendChild(newRow);
+        updateChannelNumbers();
+    });
 
     function updateChannelNumbers() {
         const rows = inputListBody.querySelectorAll('tr');
         rows.forEach((row, index) => {
-            const chCell = row.children[0];
-            chCell.textContent = index + 1; 
+            const numCell = row.children[0];
+            numCell.textContent = index + 1;
             
             const deleteBtn = row.querySelector('.delete-btn');
             deleteBtn.onclick = () => {
                 row.remove();
-                updateChannelNumbers(); 
+                updateChannelNumbers();
             };
         });
     }
+    
+    // -------------------------------------------------------------------
+    // --- 5. LÓGICA DE PALETA Y PESTAÑAS (STAGE PLOT) ---
+    // -------------------------------------------------------------------
 
-    function addChannel() {
-        const currentChannelNumber = inputListBody.children.length + 1;
-        const newRow = createChannelRow(currentChannelNumber);
-        inputListBody.appendChild(newRow);
-        updateChannelNumbers(); 
-    }
-    
-    if (addChannelBtn) {
-        addChannelBtn.addEventListener('click', addChannel);
-    }
-    
-    // -------------------------------------------------------------------
-    // --- 5. LÓGICA DE NAVEGACIÓN DE CATEGORÍAS DE LA PALETA ---
-    // -------------------------------------------------------------------
     const paletteTabButtons = document.querySelectorAll('.palette-tab-button');
     const paletteCategories = document.querySelectorAll('.palette-category');
 
     paletteTabButtons.forEach(button => {
         button.addEventListener('click', () => {
-            const categoryId = `category-${button.dataset.category}`;
-            
+            const categoryId = button.getAttribute('data-category');
             paletteTabButtons.forEach(btn => btn.classList.remove('active'));
             paletteCategories.forEach(cat => cat.classList.remove('active'));
-            
             button.classList.add('active');
-            const targetCategory = document.getElementById(categoryId);
+            
+            const targetCategory = document.getElementById(`category-${categoryId}`);
             if (targetCategory) {
                 targetCategory.classList.add('active');
             }
@@ -493,10 +513,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 6. LÓGICA DE ARRASTRE Y SOLTAR (STAGE PLOT) ---
     // -------------------------------------------------------------------
 
-    const draggableIcons = document.querySelectorAll('#palette-content .stage-icon'); 
-
+    const draggableIcons = document.querySelectorAll('#palette-content .stage-icon');
     let draggedElement = null;
-    
+
     draggableIcons.forEach(icon => {
         icon.addEventListener('dragstart', (e) => {
             draggedElement = icon.cloneNode(true);
@@ -504,9 +523,9 @@ document.addEventListener('DOMContentLoaded', () => {
             draggedElement.classList.add('stage-element');
             
             const type = icon.dataset.type;
-            
+
             if (type === 'text') {
-                draggedElement.textContent = 'Etiqueta de Texto'; 
+                draggedElement.textContent = 'Etiqueta de Texto';
                 draggedElement.dataset.type = 'text';
             } else {
                 const iconHtml = draggedElement.innerHTML;
@@ -514,14 +533,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 iconCounter++;
                 draggedElement.dataset.type = type;
             }
-            
+
             e.dataTransfer.setData('text/plain', type);
-            e.dataTransfer.setDragImage(icon, 10, 10); 
+            e.dataTransfer.setDragImage(icon, 10, 10);
         });
     });
 
     stageCanvas.addEventListener('dragover', (e) => {
-        e.preventDefault(); 
+        e.preventDefault();
     });
 
     stageCanvas.addEventListener('drop', (e) => {
@@ -531,13 +550,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const rect = stageCanvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-
+            
             draggedElement.style.position = 'absolute';
-            draggedElement.style.left = `${x - 20}px`; 
-            draggedElement.style.top = `${y - 20}px`; 
+            draggedElement.style.left = `${x - 20}px`;
+            draggedElement.style.top = `${y - 20}px`;
             
-            stageCanvas.querySelector('.canvas-placeholder')?.remove(); 
+            stageCanvas.querySelector('.canvas-placeholder')?.remove();
             
+            // Valores por defecto
             draggedElement.classList.add('shape-square');
             draggedElement.style.backgroundColor = '#3498db';
             draggedElement.style.zIndex = 10;
@@ -549,121 +569,92 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function makeElementEditable(element) {
-        
         let isDragging = false;
-        let xOffset = 0; 
-        let yOffset = 0; 
+        let xOffset = 0;
+        let yOffset = 0;
         
         element.dataset.rotation = element.dataset.rotation || 0;
         element.dataset.scale = element.dataset.scale || 1.0;
         
         element.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('resizer') || e.target.classList.contains('rotator')) {
-                return; 
-            }
+            if (e.target.closest('.resizer') || e.target.closest('.rotator')) return;
             
-            e.preventDefault();
+            deselectElement();
+            
+            element.classList.add('selected');
+            selectedElement = element;
+            
+            updateConfigPanel(element);
+            addTransformationHandles(element);
+            
+            isDragging = true;
             xOffset = e.clientX - element.getBoundingClientRect().left;
             yOffset = e.clientY - element.getBoundingClientRect().top;
-            isDragging = true;
-            element.style.cursor = 'grabbing';
-        });
-
-        document.addEventListener('mouseup', () => {
-            isDragging = false;
-            element.style.cursor = 'grab';
+            e.stopPropagation();
         });
 
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
             e.preventDefault();
+            
+            let newX = e.clientX - xOffset - stageCanvas.getBoundingClientRect().left;
+            let newY = e.clientY - yOffset - stageCanvas.getBoundingClientRect().top;
 
-            let newX = e.clientX - stageCanvas.getBoundingClientRect().left - xOffset;
-            let newY = e.clientY - stageCanvas.getBoundingClientRect().top - yOffset;
-
+            // Restricción al lienzo (simple)
             newX = Math.max(0, Math.min(newX, stageCanvas.offsetWidth - element.offsetWidth));
             newY = Math.max(0, Math.min(newY, stageCanvas.offsetHeight - element.offsetHeight));
 
             element.style.left = `${newX}px`;
             element.style.top = `${newY}px`;
         });
-        
-        element.addEventListener('click', (e) => {
-            e.stopPropagation(); 
-            
-            document.querySelectorAll('.stage-element').forEach(el => {
-                el.classList.remove('selected');
-                el.querySelectorAll('.resizer, .rotator').forEach(h => h.remove()); 
-            });
 
-            element.classList.add('selected');
-            selectedElement = element; 
-            
-            element.style.width = `${element.offsetWidth}px`;
-            element.style.height = `${element.offsetHeight}px`;
-            
-            addTransformationHandles(element);
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
         });
         
-        element.addEventListener('dblclick', (e) => {
-            e.stopPropagation();
+        element.addEventListener('dblclick', () => {
+            const currentName = element.textContent.trim();
+            const newName = prompt('Introduce el nuevo nombre del elemento:', currentName);
             
-            const iconElement = element.querySelector('i');
-            let currentName = element.textContent.trim(); 
-            
-            if (iconElement) {
-                currentName = element.innerHTML.replace(iconElement.outerHTML, '').trim();
-            }
-
-            const newName = prompt('Ingrese el nuevo nombre para el elemento (deje vacío para ocultar):', currentName);
-            
-            if (newName !== null) { 
+            if (newName !== null && newName.trim() !== '') {
                 const trimmedName = newName.trim();
+                const iconElement = element.querySelector('i');
                 
-                if (trimmedName === '') {
-                    element.style.padding = '0';
-                    element.style.minWidth = '40px'; 
-                    element.style.minHeight = '40px'; 
-                    element.style.textAlign = 'center';
-
-                    if (element.dataset.type !== 'text' && iconElement) {
-                        element.innerHTML = iconElement.outerHTML; 
-                    } else {
-                        element.textContent = ''; 
-                    }
-                    
-                } else {
-                    if (element.dataset.type !== 'text') {
-                         element.style.padding = ''; 
-                         element.style.minWidth = '';
-                         element.style.minHeight = '';
-                         element.style.textAlign = '';
-                    } else {
-                         element.style.padding = '2px 5px'; 
-                         element.style.minWidth = '';
-                         element.style.minHeight = '';
-                         element.style.textAlign = '';
-                    }
-
+                if (element.dataset.type !== 'text') {
                     if (iconElement) {
-                         element.innerHTML = iconElement.outerHTML + ' ' + trimmedName;
+                        element.innerHTML = iconElement.outerHTML + ' ' + trimmedName;
                     } else {
-                         element.textContent = trimmedName;
+                        element.textContent = trimmedName;
                     }
+                } else {
+                    element.textContent = trimmedName;
+                }
+                
+                updateConfigPanel(element);
+            } else if (newName === '') {
+                // Opción para resetear el nombre (si no es de tipo texto)
+                const type = element.dataset.type;
+                const iconElement = element.querySelector('i');
+
+                if (type !== 'text') {
+                     if (iconElement) {
+                        element.innerHTML = iconElement.outerHTML;
+                    } else {
+                        element.textContent = '';
+                    }
+                } else {
+                    element.textContent = '';
                 }
             }
-            
             deselectElement();
         });
-        
-    } 
+    }
 
     function deselectElement() {
         if (selectedElement) {
             selectedElement.classList.remove('selected');
-            selectedElement.querySelectorAll('.resizer, .rotator').forEach(h => h.remove()); 
+            selectedElement.querySelectorAll('.resizer, .rotator').forEach(h => h.remove());
             selectedElement = null;
-            
             elementControls.style.display = 'none';
             configPanel.querySelector('.config-placeholder').style.display = 'block';
         }
@@ -677,22 +668,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const rotator = document.createElement('div');
         rotator.className = 'rotator';
         element.appendChild(rotator);
-        
+
         setupResizing(element, resizerBR);
         setupRotation(element, rotator);
-        
         updateConfigPanel(element);
     }
-    
+
     function setupResizing(element, handle) {
         let isResizing = false;
         let startX, startY, startWidth, startHeight;
 
         handle.addEventListener('mousedown', (e) => {
             e.preventDefault();
-            e.stopPropagation(); 
+            e.stopPropagation();
             isResizing = true;
-
             startX = e.clientX;
             startY = e.clientY;
             startWidth = element.offsetWidth;
@@ -708,7 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let newWidth = startWidth + deltaX;
             let newHeight = startHeight + deltaY;
-
+            
             const minSize = element.dataset.type === 'text' ? 10 : 30;
 
             newWidth = Math.max(minSize, newWidth);
@@ -725,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setupRotation(element, rotator) {
         let isRotating = false;
-        
+
         rotator.addEventListener('mousedown', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -739,13 +728,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const rect = element.getBoundingClientRect();
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + rect.height / 2;
-            
-            const angleRad = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-            const angleDeg = angleRad * (180 / Math.PI) + 90; 
 
-            const currentScale = element.dataset.scale || 1.0;
-            element.style.transform = `scale(${currentScale}) rotate(${angleDeg}deg)`;
-            element.dataset.rotation = angleDeg; 
+            const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI) + 90;
+            element.style.transform = `rotate(${angle}deg) scale(${element.dataset.scale})`;
+            element.dataset.rotation = angle;
         });
 
         document.addEventListener('mouseup', () => {
@@ -756,26 +742,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateConfigPanel(element) {
         configPanel.querySelector('.config-placeholder').style.display = 'none';
         elementControls.style.display = 'block';
-        
+
         const currentColor = element.style.backgroundColor || '#3498db';
         const currentShape = element.classList.contains('shape-circle') ? 'circle' : 'square';
         const currentZIndex = element.style.zIndex || 10;
         
-        const tempElement = element.cloneNode(true); 
-        tempElement.querySelectorAll('.resizer, .rotator').forEach(h => h.remove());
+        selectedElementTitle.textContent = element.textContent.trim() || 'Elemento Seleccionado';
 
-        const iconElement = tempElement.querySelector('i');
-        if (iconElement) {
-            iconElement.remove();
-        }
-
-        let titleText = tempElement.textContent.trim();
-
-        selectedElementTitle.textContent = titleText || 'Elemento Seleccionado';
         colorPicker.value = currentColor;
         shapeSelector.value = currentShape;
         zIndexSelector.value = currentZIndex;
-        
+
         colorPicker.oninput = () => {
             element.style.backgroundColor = colorPicker.value;
         };
@@ -784,25 +761,24 @@ document.addEventListener('DOMContentLoaded', () => {
             element.classList.remove('shape-square', 'shape-circle');
             element.classList.add(`shape-${shapeSelector.value}`);
         };
-        
+
         zIndexSelector.oninput = () => {
             element.style.zIndex = zIndexSelector.value;
         };
-        
+
         deleteElementBtn.onclick = () => {
             element.remove();
-            deselectElement(); 
+            deselectElement();
         };
     }
-    
+
     // -------------------------------------------------------------------
     // --- LÓGICA DE DESELECCIÓN Y ATAJOS DE TECLADO ---
     // -------------------------------------------------------------------
+
     document.addEventListener('click', (e) => {
         if (!selectedElement || selectedElement.contains(e.target) || e.target === stageCanvas) return;
-        
         if (e.target.closest('#element-config-panel')) return;
-        
         if (!e.target.closest('.stage-element')) {
             deselectElement();
         }
@@ -816,123 +792,176 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('keydown', (e) => {
         if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElement) {
-            e.preventDefault(); 
+            e.preventDefault();
             selectedElement.remove();
             deselectElement();
         }
     });
-
-
+    
     // -------------------------------------------------------------------
     // --- 7. LÓGICA DE LISTA DE ENVÍOS (Sends List) ---
     // -------------------------------------------------------------------
 
-    const addSendsBtn = document.getElementById('add-sends-btn'); 
+    const addSendsBtn = document.getElementById('add-sends-btn');
 
     function createSendsRow(sendNumber) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td data-label="Nº" contenteditable="false">${sendNumber}</td>
-            <td data-label="Nombre del Envío" contenteditable="true">Monitor 1</td>
+            <td data-label="Nombre del Envío" contenteditable="true">Monitor ${sendNumber}</td>
             <td data-label="Tipo">
                 <select>
                     <option value="wedge">Wedge</option>
                     <option value="iem">IEM</option>
+                    <option value="sidefill">Sidefill</option>
                 </select>
             </td>
-            <td data-label="Input/Aux" contenteditable="true">Aux 1</td>
+            <td data-label="Input/Aux" contenteditable="true">Aux ${sendNumber}</td>
             <td data-label="Stereo">
                 <input type="checkbox">
             </td>
-            <td data-label="Notas" contenteditable="true">Voz Principal</td>
+            <td data-label="Notas" contenteditable="true"></td>
             <td data-label="Eliminar"><button class="btn delete-btn"><i class="fas fa-times"></i></button></td>
         `;
         return row;
     }
 
+    addSendsBtn.addEventListener('click', () => {
+        const currentCount = sendsListBody.querySelectorAll('tr').length;
+        const newRow = createSendsRow(currentCount + 1);
+        sendsListBody.appendChild(newRow);
+        updateSendsNumbers();
+    });
+
     function updateSendsNumbers() {
         const rows = sendsListBody.querySelectorAll('tr');
         rows.forEach((row, index) => {
             const numCell = row.children[0];
-            numCell.textContent = index + 1; 
-
+            numCell.textContent = index + 1;
+            
             const deleteBtn = row.querySelector('.delete-btn');
             deleteBtn.onclick = () => {
                 row.remove();
-                updateSendsNumbers(); 
+                updateSendsNumbers();
             };
         });
     }
 
-    function addSend() {
-        const currentSendNumber = sendsListBody.children.length + 1;
-        const newRow = createSendsRow(currentSendNumber);
-        sendsListBody.appendChild(newRow);
-        updateSendsNumbers();
-    }
+    // -------------------------------------------------------------------
+    // --- NUEVAS FUNCIONES: GESTIÓN DE LA INFORMACIÓN DE PROYECTO ---
+    // -------------------------------------------------------------------
 
-    if (sendsListBody && addSendsBtn) {
-        addSendsBtn.addEventListener('click', addSend);
+    function updateProjectInfoDisplay(config) {
+        // Formato de la fecha: dd/mmm/yyyy (ej: 15 may. 2025)
+        let dateDisplay = config.date ? new Date(config.date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+        
+        projectInfoDisplay.innerHTML = `
+            <span>Proyecto: <strong>${config.projectName || 'Sin Nombre'}</strong></span>
+            ${config.tourName ? `<span>Gira: <strong>${config.tourName}</strong></span>` : ''}
+            <span>Fecha: <strong>${dateDisplay}</strong></span>
+            <span>Escenario: <strong>${config.stageSize || 'N/A'}</strong></span>
+        `;
     }
     
-    // -------------------------------------------------------------------
-    // --- 8. LÓGICA DE PERSISTENCIA (GUARDAR Y CARGAR) ---
-    // -------------------------------------------------------------------
+    // Función para llenar el formulario de preferencias con la configuración actual
+    function fillPreferencesForm(config) {
+        document.getElementById('pref-project-name').value = config.projectName || '';
+        document.getElementById('pref-tour-name').value = config.tourName || '';
+        document.getElementById('pref-date').value = config.date || '';
+        document.getElementById('pref-stage-size').value = config.stageSize || '';
+        document.getElementById('pref-input-channels').value = config.numInputChannels || 0;
+        document.getElementById('pref-sends-count').value = config.numSends || 0;
+    }
     
-    function serializeProject() {
-        const projectConfig = {
-            name: document.getElementById('project-name').value,
-            tourName: document.getElementById('tour-name').value,
-            date: document.getElementById('date').value,
-            stageSize: document.getElementById('stage-size').value,
-            // CORREGIDO: Usar los IDs correctos para guardar la configuración
-            numInputChannels: document.getElementById('input-channels')?.value || '',
-            numSends: document.getElementById('sends-count')?.value || '',
+    // LÓGICA DE PREFERENCIAS (Abrir, Cerrar y Guardar)
+    preferencesBtn.addEventListener('click', () => {
+        if (!projectConfig.projectName) { // Verificar si el proyecto se ha creado
+            alert('Por favor, primero crea el proyecto con el formulario inicial.');
+            return;
+        }
+        fillPreferencesForm(projectConfig);
+        preferencesScreen.classList.add('active');
+    });
+
+    closePreferencesBtn.addEventListener('click', () => {
+        preferencesScreen.classList.remove('active');
+    });
+
+    projectPreferencesForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const oldConfig = { ...projectConfig }; // Copia de la configuración antigua
+        
+        // 1. Recoger nuevos datos
+        const newConfig = {
+            projectName: document.getElementById('pref-project-name').value,
+            tourName: document.getElementById('pref-tour-name').value,
+            date: document.getElementById('pref-date').value,
+            stageSize: document.getElementById('pref-stage-size').value,
+            numInputChannels: parseInt(document.getElementById('pref-input-channels').value || 0),
+            numSends: parseInt(document.getElementById('pref-sends-count').value || 0)
         };
+        
+        // 2. Actualizar projectConfig global
+        projectConfig = newConfig;
+        
+        // 3. Actualizar display
+        updateProjectInfoDisplay(projectConfig);
+        
+        // 4. Re-inicializar listas si los números han cambiado (reemplaza las listas completas)
+        if (oldConfig.numInputChannels !== newConfig.numInputChannels) {
+            initializeInputList(newConfig.numInputChannels);
+        }
+        if (oldConfig.numSends !== newConfig.numSends) {
+            initializeSendsList(newConfig.numSends);
+        }
 
+        // 5. Cerrar preferencias
+        preferencesScreen.classList.remove('active');
+        alert('Configuración de proyecto actualizada.');
+    });
+    
+    // -------------------------------------------------------------------
+    // --- 8. LÓGICA DE GUARDAR Y CARGAR ---
+    // -------------------------------------------------------------------
+
+    function serializeProject() {
         const stageElements = [];
-        const elementsOnCanvas = stageCanvas.querySelectorAll('.stage-element');
-        elementsOnCanvas.forEach(el => {
-            const elClone = el.cloneNode(true);
-            elClone.querySelectorAll('.resizer, .rotator').forEach(h => h.remove());
+        stageCanvas.querySelectorAll('.stage-element').forEach(element => {
+            const rect = element.getBoundingClientRect();
+            const canvasRect = stageCanvas.getBoundingClientRect();
             
             stageElements.push({
-                contentHtml: elClone.innerHTML, 
-                type: el.dataset.type,
-                style: {
-                    left: el.style.left,
-                    top: el.style.top,
-                    width: el.style.width,
-                    height: el.style.height,
-                    transform: el.style.transform,
-                    backgroundColor: el.style.backgroundColor || '',
-                    zIndex: el.style.zIndex || '',
-                    padding: el.style.padding || '',
-                    minWidth: el.style.minWidth || '',
-                    minHeight: el.style.minHeight || '',
-                },
-                classes: Array.from(el.classList).filter(c => c.startsWith('shape-') || c === 'stage-element'),
+                type: element.dataset.type,
+                name: element.textContent.trim(),
+                x: element.offsetLeft,
+                y: element.offsetTop,
+                width: element.offsetWidth,
+                height: element.offsetHeight,
+                color: element.style.backgroundColor,
+                shape: element.classList.contains('shape-circle') ? 'circle' : 'square',
+                zIndex: element.style.zIndex,
+                rotation: element.dataset.rotation || 0,
+                scale: element.dataset.scale || 1.0,
             });
         });
 
         const inputList = [];
         inputListBody.querySelectorAll('tr').forEach(row => {
             const cells = row.querySelectorAll('td');
-            
             const subSnakeCell = cells[5];
-
             inputList.push({
                 ch: cells[0].textContent,
                 name: cells[1].textContent,
-                mic: cells[2].querySelector('.mic-input').value, 
+                mic: cells[2].querySelector('.mic-input').value,
                 phantom: cells[3].querySelector('input[type="checkbox"]').checked,
-                stand: cells[4].querySelector('select').value, 
-                subSnake: subSnakeCell.querySelector('.subsnake-name').value, 
-                subSnakeColor: subSnakeCell.querySelector('.subsnake-color-picker').value, 
+                stand: cells[4].querySelector('select').value,
+                subSnake: subSnakeCell.querySelector('.subsnake-name').value,
+                subSnakeColor: subSnakeCell.querySelector('.subsnake-color-picker').value,
                 notes: cells[6].textContent,
             });
         });
-        
+
         const sendsList = [];
         sendsListBody.querySelectorAll('tr').forEach(row => {
             const cells = row.querySelectorAll('td');
@@ -945,21 +974,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 notes: cells[5].textContent,
             });
         });
-        
+
         const riderContent = document.getElementById('rider-editor').innerHTML;
 
         const projectData = {
             meta: {
                 app: "BARSTAGEplot",
-                version: 1.2, 
+                version: 1.2,
                 dateSaved: new Date().toISOString()
             },
-            config: projectConfig,
+            config: projectConfig, // AHORA USA LA VARIABLE GLOBAL
             stage: stageElements,
             inputs: inputList,
             sends: sendsList,
             rider: riderContent,
-            foh: [], 
+            foh: [],
         };
 
         return projectData;
@@ -967,109 +996,134 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveProject() {
         const data = serializeProject();
-        const jsonString = JSON.stringify(data, null, 2); 
-
+        const jsonString = JSON.stringify(data, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
-
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${data.config.name || 'BARSTAGEplot_Proyecto'}_${new Date().toISOString().substring(0, 10)}.barstage`; 
-        
+        a.download = `${data.config.projectName || 'BARSTAGEplot_Proyecto'}_${new Date().toISOString().substring(0, 10)}.barstage`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
-        alert(`Proyecto "${data.config.name || 'Sin Nombre'}" guardado correctamente.`);
+        alert(`Proyecto "${data.config.projectName || 'Sin Nombre'}" guardado correctamente.`);
     }
 
-    function loadProject(projectData) {
-        
+    function loadProject(data) { 
         // 1. Cargar Configuración Inicial
-        const config = projectData.config;
-        document.getElementById('project-name').value = config.name || '';
-        document.getElementById('tour-name').value = config.tourName || '';
-        document.getElementById('date').value = config.date || '';
-        document.getElementById('stage-size').value = config.stageSize || '';
-
-        // CORREGIDO: Cargar los valores de conteo usando los IDs de tu HTML
-        const numInputChannelsInput = document.getElementById('input-channels');
-        if (numInputChannelsInput && config.numInputChannels) {
-            numInputChannelsInput.value = config.numInputChannels;
-        }
-        const numSendsInput = document.getElementById('sends-count');
-        if (numSendsInput && config.numSends) {
-            numSendsInput.value = config.numSends;
-        }
-
+        const config = data.config;
+        
+        // INICIO MODIFICACIÓN: Almacenar la configuración globalmente y actualizar el display
+        projectConfig = config; 
+        updateProjectInfoDisplay(projectConfig);
+        
+        // NUEVO: Asegurarse de que el modo inicial se desactive al cargar un proyecto
         projectInitScreen.classList.remove('active');
         mainNav.style.display = 'flex';
-        activateTab('stage-plot'); 
-        
-        // 2. Reconstruir Elementos del Plano
-        stageCanvas.innerHTML = '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Lienzo Proporcional A4)</p>';
-        if(projectData.stage && projectData.stage.length > 0) {
-            stageCanvas.querySelector('.canvas-placeholder')?.remove(); 
+        body.classList.remove('init-screen'); 
+        // FIN MODIFICACIÓN
+
+        // 2. Cargar elementos de Stage
+        stageCanvas.innerHTML = ''; // Limpiar el canvas
+        if (data.stage && data.stage.length > 0) {
+            stageCanvas.querySelector('.canvas-placeholder')?.remove(); // Eliminar placeholder
+            data.stage.forEach(elementData => {
+                const element = document.createElement('div');
+                element.className = 'stage-element';
+                element.dataset.type = elementData.type;
+                
+                element.style.position = 'absolute';
+                element.style.left = `${elementData.x}px`;
+                element.style.top = `${elementData.y}px`;
+                element.style.width = `${elementData.width}px`;
+                element.style.height = `${elementData.height}px`;
+                element.style.backgroundColor = elementData.color;
+                element.style.zIndex = elementData.zIndex;
+                element.style.transform = `rotate(${elementData.rotation}deg) scale(${elementData.scale})`;
+                element.dataset.rotation = elementData.rotation;
+                element.dataset.scale = elementData.scale;
+
+                element.classList.add(`shape-${elementData.shape}`);
+
+                if (elementData.type === 'text') {
+                    element.textContent = elementData.name;
+                } else {
+                    const icon = document.createElement('i');
+                    // Buscar la clase de Font Awesome basándose en el tipo si es posible
+                    let iconClass = 'fas fa-cube'; // Default icon
+                    if (elementData.type === 'speaker') iconClass = 'fas fa-volume-up';
+                    else if (elementData.type === 'monitor') iconClass = 'fas fa-headset';
+                    else if (elementData.type === 'amp') iconClass = 'fas fa-cube';
+                    else if (elementData.type === 'keyboard') iconClass = 'fas fa-keyboard';
+                    else if (elementData.type === 'drums') iconClass = 'fas fa-drum';
+                    else if (elementData.type === 'percussion') iconClass = 'fas fa-bong';
+                    else if (elementData.type === 'riser') iconClass = 'fas fa-layer-group';
+                    else if (elementData.type === 'vocal-mic') iconClass = 'fas fa-microphone';
+                    else if (elementData.type === 'instrument-mic') iconClass = 'fas fa-microphone-alt';
+                    else if (elementData.type === 'di') iconClass = 'fas fa-plug';
+                    else if (elementData.type === 'guitar') iconClass = 'fas fa-guitar';
+                    else if (elementData.type === 'bass') iconClass = 'fas fa-bass-drum';
+                    else if (elementData.type === 'sax') iconClass = 'fas fa-saxophone';
+                    else if (elementData.type === 'rectangle') iconClass = 'far fa-square';
+                    else if (elementData.type === 'circle') iconClass = 'far fa-circle';
+                    else if (elementData.type === 'triangle') iconClass = 'fas fa-caret-up';
+
+                    icon.className = iconClass;
+                    element.innerHTML = icon.outerHTML + ' ' + elementData.name;
+                }
+
+                stageCanvas.appendChild(element);
+                makeElementEditable(element);
+            });
         }
-
-        projectData.stage.forEach(elementData => {
-            const el = document.createElement('div');
-            el.className = elementData.classes.join(' '); 
-            
-            el.innerHTML = elementData.contentHtml || elementData.content || ''; 
-            
-            el.dataset.type = elementData.type;
-            
-            el.style.cssText = `
-                position: absolute;
-                left: ${elementData.style.left};
-                top: ${elementData.style.top};
-                width: ${elementData.style.width || '50px'};
-                height: ${elementData.style.height || '30px'};
-                transform: ${elementData.style.transform || 'none'};
-                background-color: ${elementData.style.backgroundColor || '#3498db'};
-                z-index: ${elementData.style.zIndex || 10};
-                padding: ${elementData.style.padding || ''};
-                min-width: ${elementData.style.minWidth || ''};
-                min-height: ${elementData.style.minHeight || ''};
-            `;
-
-            stageCanvas.appendChild(el);
-            makeElementEditable(el); 
-        });
         
-        // 3. Reconstruir Lista de Canales
-        inputListBody.innerHTML = ''; 
-        if (projectData.inputs && projectData.inputs.length > 0) {
-            projectData.inputs.forEach(data => {
-                const row = createChannelRow(data.ch);
+        // 3. Cargar Input List
+        inputListBody.innerHTML = '';
+        if (data.inputs && data.inputs.length > 0) {
+            data.inputs.forEach(data => {
+                const row = document.createElement('tr');
+                row.draggable = true; 
                 
-                row.children[0].textContent = data.ch; 
-                row.children[1].textContent = data.name; 
-                
-                const micInput = row.children[2].querySelector('.mic-input');
-                micInput.value = data.mic; 
+                const defaultStandOptions = getStandOptions(data.stand);
 
-                const phantomCheckbox = row.children[3].querySelector('input[type="checkbox"]');
-                phantomCheckbox.checked = data.phantom;
+                row.innerHTML = `
+                    <td data-label="Ch" contenteditable="true">${data.ch}</td>
+                    <td data-label="Nombre de canal" contenteditable="true">${data.name}</td>
+                    <td data-label="Mic/DI">
+                        <input type="text" value="${data.mic}" class="mic-input" list="mic-datalist" placeholder="Escribe o selecciona un Mic/DI">
+                    </td>
+                    <td data-label="Phantom"><input type="checkbox" ${data.phantom ? 'checked' : ''} class="phantom-checkbox"></td>
+                    <td data-label="Pie">
+                        <select class="stand-select">
+                            ${defaultStandOptions}
+                        </select>
+                    </td>
+                    <td data-label="Sub-Snake" class="subsnake-cell" style="background-color: ${data.subSnakeColor};">
+                        <input type="text" value="${data.subSnake}" class="subsnake-name">
+                        <input type="color" value="${data.subSnakeColor}" class="subsnake-color-picker">
+                    </td>
+                    <td data-label="Notas" contenteditable="true">${data.notes}</td>
+                    <td data-label="Eliminar"><button class="btn delete-btn"><i class="fas fa-times"></i></button></td>
+                `;
                 
-                const standSelect = row.children[4].querySelector('select');
-                standSelect.innerHTML = getStandOptions(data.stand); 
-                
-                const subSnakeCell = row.children[5];
-                const subSnakeNameInput = subSnakeCell.querySelector('.subsnake-name');
-                const subSnakeColorPicker = subSnakeCell.querySelector('.subsnake-color-picker');
-                
-                subSnakeNameInput.value = data.subSnake;
-                subSnakeColorPicker.value = data.subSnakeColor;
-                subSnakeCell.style.backgroundColor = data.subSnakeColor; 
+                // Re-attach listeners for dynamic logic
+                const nameCell = row.children[1];
+                const micInput = row.querySelector('.mic-input');
+                const standSelect = row.querySelector('.stand-select');
+                const phantomCheckbox = row.querySelector('.phantom-checkbox');
+                const subSnakeColorPicker = row.querySelector('.subsnake-color-picker');
+                const subSnakeCell = row.querySelector('.subsnake-cell');
 
-                row.children[6].textContent = data.notes;
-                
-                updateRowDisplay(row); 
-                setupDragAndDrop(row); 
+                nameCell.addEventListener('blur', () => { 
+                    // No es necesario rehacer la lógica de categorías aquí, solo asegurarse de que el display se actualice
+                    updateRowDisplay(row); 
+                });
+                micInput.addEventListener('input', () => { updateRowDisplay(row); });
+                phantomCheckbox.addEventListener('change', () => { updateRowDisplay(row); });
+                subSnakeColorPicker.addEventListener('input', (e) => { subSnakeCell.style.backgroundColor = e.target.value; });
 
+                updateRowDisplay(row);
+                setupDragAndDrop(row);
                 inputListBody.appendChild(row);
             });
             updateChannelNumbers(); 
@@ -1078,36 +1132,33 @@ document.addEventListener('DOMContentLoaded', () => {
             initializeInputList(parseInt(config.numInputChannels));
         }
 
-        // 4. Reconstruir Lista de Envíos
-        sendsListBody.innerHTML = ''; 
-        if (projectData.sends && projectData.sends.length > 0) {
-            projectData.sends.forEach(data => {
+        // 4. Cargar Sends List
+        sendsListBody.innerHTML = '';
+        if (data.sends && data.sends.length > 0) {
+            data.sends.forEach(data => {
                 const row = createSendsRow(data.num);
                 row.children[1].textContent = data.name;
-                if(row.children[2].querySelector('select')) {
-                     row.children[2].querySelector('select').value = data.type;
-                }
+                row.children[2].querySelector('select').value = data.type;
                 row.children[3].textContent = data.inputAux;
                 row.children[4].querySelector('input[type="checkbox"]').checked = data.stereo;
                 row.children[5].textContent = data.notes;
-                
                 sendsListBody.appendChild(row);
             });
-            updateSendsNumbers(); 
+            updateSendsNumbers();
         } else if (config.numSends && parseInt(config.numSends) > 0) {
             // Si no hay envíos guardados, inicializa con el conteo de la configuración
             initializeSendsList(parseInt(config.numSends));
         }
-        
-        // 5. Cargar Contenido del Rider
-        if (projectData.rider) {
-             document.getElementById('rider-editor').innerHTML = projectData.rider;
+
+        // 5. Cargar Rider
+        if (data.rider) {
+            document.getElementById('rider-editor').innerHTML = data.rider;
         }
 
-        alert(`Proyecto "${config.name}" cargado exitosamente.`);
+        activateTab('stage-plot'); // Ir al plano después de cargar
+        alert('Proyecto cargado correctamente.');
     }
-    
-    // --- Conexión de Eventos a Botones de Guardar/Cargar ---
+
     const saveButton = document.querySelector('.file-actions .fa-save').closest('button');
     const loadButton = document.querySelector('.file-actions .fa-folder-open').closest('button');
     
@@ -1141,7 +1192,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error("Error al parsear JSON:", error);
                 alert('Error al leer el archivo. Asegúrate de que sea un archivo de proyecto (.barstage o .json) válido.');
             }
-            event.target.value = ''; 
+            event.target.value = ''; // Reset the input so the same file can be loaded again
         };
         reader.readAsText(file);
     });
