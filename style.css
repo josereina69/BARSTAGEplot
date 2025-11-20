@@ -116,6 +116,12 @@ body.init-screen #project-info-display {
     background-color: #0056b3;
 }
 
+/* NUEVO: Estilo para los botones de añadir en la parte superior de las listas */
+.add-btn-top {
+    margin-bottom: 15px; 
+    align-self: flex-start; /* Asegura que no se estire y se muestre arriba */
+}
+
 /* --- CONTENEDOR PRINCIPAL Y PESTAÑAS --- */
 #main-container {
     display: flex;
@@ -222,93 +228,84 @@ body.init-screen #project-info-display {
     overflow-y: auto; 
 }
 
-#preferences-content {
+#preferences-screen.active {
     display: flex;
-    flex-direction: column;
-    gap: 30px;
-    max-width: 500px;
-    width: 100%;
-    padding: 30px;
-    background-color: var(--color-surface);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-#preferences-screen h2 {
-    margin-bottom: 10px;
-    color: var(--color-primary);
+.preferences-container {
+    max-width: 600px;
     width: 100%;
+    background-color: var(--color-surface);
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    position: relative;
+}
+
+.preferences-container h2 {
+    margin-bottom: 25px;
+    color: var(--color-primary);
     text-align: center;
 }
 
 .pref-section {
-    padding: 20px;
+    padding: 15px;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
-    background-color: var(--color-background);
+    border-radius: 4px;
+    margin-bottom: 20px;
 }
 
-#project-preferences-form input {
+.pref-section h3 {
+    margin-top: 0;
     margin-bottom: 15px;
+    color: var(--color-primary);
 }
 
-#project-preferences-form button {
-    margin-top: 10px;
+.pref-section h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: var(--color-text);
 }
 
+
+/* BOTÓN CERRAR PREFERENCIAS */
 #close-preferences-btn {
-    margin-top: 20px;
-    align-self: flex-start;
+    position: absolute;
+    top: 15px;
+    right: 15px;
 }
 /* FIN NUEVO */
 
-/* --- PESTAÑA PLANO --- */
-#stage-plot {
-    flex-direction: row; 
-    gap: 0; 
-    height: calc(100vh - 170px);
-    max-height: 800px;
-    padding: 0; 
-    background-color: transparent; 
-    box-shadow: none; 
-    overflow-x: hidden; 
-}
-
-/* --- ELEMENT PALETTE (CORREGIDO ANCHO Y SCROLL) --- */
+/* --- ELEMENT PALETTE --- */
 #element-palette {
-    width: 250px; /* ANCHO CORREGIDO */
-    min-width: 250px; 
-    
-    padding: 10px 0 10px 0; 
-    display: flex; 
-    flex-direction: column; 
-    overflow: hidden; /* Oculta el scroll principal, el scroll va en #palette-content */
-    
-    border-right: 1px solid var(--color-border);
-    background-color: var(--color-surface); 
-    border-radius: 8px 0 0 8px; 
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); 
-    flex-shrink: 0; 
+    width: 250px;
+    min-width: 200px;
+    background-color: var(--secondary-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    padding: 10px 0 10px 0;
+    display: flex;
+    flex-direction: column;
+    margin-right: 20px;
 }
 
 #element-palette h3 {
-    margin-bottom: 15px;
-    color: var(--color-primary);
     padding: 0 15px;
+    margin-bottom: 10px;
+    color: var(--color-primary);
+    font-size: 1.2em;
 }
 
-/* NUEVOS ESTILOS PARA CATEGORÍAS DE LA PALETA */
 #palette-tabs {
     display: flex;
-    flex-wrap: nowrap; 
-    padding: 0 5px 10px 5px; 
+    gap: 5px;
+    padding: 0 15px 10px 15px;
     border-bottom: 1px solid var(--color-border);
-    overflow-x: auto; 
     margin-bottom: 10px;
-    
-    -ms-overflow-style: none; 
-    scrollbar-width: none; 
+    overflow-x: auto; /* Permite scroll horizontal si hay demasiadas pestañas */
+    scrollbar-width: none; /* Firefox */
 }
+
 #palette-tabs::-webkit-scrollbar {
     display: none;
 }
@@ -323,7 +320,7 @@ body.init-screen #project-info-display {
     opacity: 0.6;
     transition: opacity 0.2s, background-color 0.2s, border-radius 0.2s;
     line-height: 1;
-    flex-shrink: 0; 
+    flex-shrink: 0;
 }
 
 .palette-tab-button:hover {
@@ -341,7 +338,7 @@ body.init-screen #project-info-display {
 #palette-content {
     overflow-y: auto; /* Scroll vertical para el contenido */
     padding: 0 15px;
-    padding-bottom: 20px; 
+    padding-bottom: 20px;
 }
 
 .palette-category {
@@ -362,7 +359,8 @@ body.init-screen #project-info-display {
     text-align: center;
     font-size: 0.9em;
     transition: background-color 0.2s;
-    border: 1px solid var(--color-border); 
+    /* CORRECCIÓN: Eliminamos el borde de 1px para evitar el contorno en los íconos de la paleta. */
+    border: none; 
 }
 
 .stage-icon:hover {
@@ -380,24 +378,56 @@ body.init-screen #project-info-display {
     flex-grow: 1;
     background-color: var(--color-background);
     padding: 20px;
-    overflow: auto; /* Permite scroll si el lienzo es más grande */
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: auto;
+    display: flex; /* Para centrar el canvas */
+    justify-content: center;
+    align-items: center;
 }
 
 #stage-canvas {
     position: relative;
-    background-color: white;
+    background-color: var(--color-surface);
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
-    margin: 0 auto; 
-    overflow: hidden; 
-    border-radius: 4px;
-    color: #333; 
+    /* Dimensiones proporcionales A4 (210mm x 297mm) */
+    width: 700px;
+    height: 495px; /* 700 * (210/297) -> 700 * 0.707 = 495 (A3 es doble A4, A4 es 1:1.414) */
+    border: 1px solid var(--color-border);
+    user-select: none;
+    cursor: grab;
+    overflow: hidden; /* Oculta elementos fuera de los límites */
+    
+    /* CAMBIOS NUEVOS PARA LA REJILLA */
+    background-image: none; /* Por defecto, sin rejilla */
+    background-size: 25px 25px; /* Tamaño de la cuadrícula */
+    background-position: 0 0;
+    transition: background-image 0.2s;
 }
 
-/* Proporción A4 (210mm x 297mm) en landscape: 1.414 */
-/* Usaremos una proporción fija para simplificar: 1.4:1 (ancho:alto) */
+/* ESTILO DE LA REJILLA ACTIVA (toggle) */
+#stage-canvas.show-grid {
+    background-image: 
+        linear-gradient(to right, var(--color-border) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
+    opacity: 0.8; 
+}
+
+/* Modo Oscuro: rejilla más sutil */
+body.dark-mode #stage-canvas.show-grid {
+    background-image: 
+        linear-gradient(to right, var(--color-border) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
+    opacity: 0.6; 
+}
+
 #stage-canvas.a4-proportional {
-    width: 800px;
-    height: 570px; /* 800 / 1.4 */
+    /* Ya tienen las dimensiones correctas de arriba */
+}
+
+#stage-canvas:active {
+    cursor: grabbing;
 }
 
 .canvas-placeholder {
@@ -405,72 +435,82 @@ body.init-screen #project-info-display {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #aaa;
-    font-style: italic;
+    font-size: 1.1em;
+    color: var(--color-text);
+    background-color: transparent; /* Permitir ver la rejilla */
+    padding: 10px;
+    border-radius: 5px;
+    text-align: center;
+    pointer-events: none; /* Para que no interfiera con el drag & drop */
+    z-index: 1; 
 }
 
 /* --- ELEMENT CONFIG PANEL --- */
 #element-config-panel {
     width: 250px;
-    min-width: 250px;
-    padding: 15px;
-    border-left: 1px solid var(--color-border);
-    background-color: var(--color-surface);
-    border-radius: 0 8px 8px 0;
+    min-width: 200px;
+    background-color: var(--secondary-bg);
+    border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    flex-shrink: 0; 
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    margin-left: 20px;
 }
 
 #element-config-panel h3 {
-    margin-bottom: 15px;
     color: var(--color-primary);
+    margin-bottom: 20px;
 }
 
-#element-controls label {
+#element-config-panel label {
     display: block;
     margin-top: 10px;
-    margin-bottom: 5px;
     font-weight: 600;
-    font-size: 0.9em;
 }
 
-#element-controls input, #element-controls select {
+#element-config-panel input[type="color"],
+#element-config-panel input[type="number"],
+#element-config-panel input[type="range"],
+#element-config-panel select {
     width: 100%;
-    padding: 8px;
-    margin-bottom: 15px;
+    padding: 5px;
     border: 1px solid var(--color-border);
+    border-radius: 4px;
     background-color: var(--color-background);
     color: var(--color-text);
-    border-radius: 4px;
+    margin-top: 5px;
 }
 
-#selected-element-title {
-    font-weight: bold;
+#element-config-panel input[type="color"] {
+    height: 30px;
+}
+
+#element-controls {
+    border-top: 1px solid var(--color-border);
+    padding-top: 20px;
+    margin-top: 20px;
+}
+
+#element-controls h4 {
     color: var(--color-primary);
-    display: block;
     margin-bottom: 15px;
 }
 
-/* --- ELEMENTOS EN EL LIENZO --- */
+/* --- ELEMENTOS DEL PLANO (STAGE ELEMENTS) --- */
 .stage-element {
     position: absolute;
-    padding: 10px;
-    min-width: 30px; 
-    min-height: 30px; 
-    color: white; 
-    background-color: #3498db;
-    border-radius: 4px;
     cursor: move;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
-    flex-direction: column; 
-    text-align: center;
-    font-size: 0.8em;
-    font-weight: bold;
-    border: 1px solid #333;
+    align-items: center;
+    font-size: 0.9em;
+    font-weight: 600;
+    min-width: 50px;
+    min-height: 50px;
     user-select: none;
-    transition: box-shadow 0.1s; 
+    transition: box-shadow 0.1s;
 }
 
 .stage-element i {
@@ -489,10 +529,9 @@ body.init-screen #project-info-display {
 .stage-element[data-type="text"] {
     background-color: transparent !important;
     color: var(--color-text);
-    border: 1px dashed var(--color-border);
     padding: 2px 5px;
-    min-width: auto;
-    min-height: auto;
+    min-width: 25px;
+    min-height: 25px;
     font-weight: normal;
 }
 
@@ -507,10 +546,14 @@ body.init-screen #project-info-display {
 
 /* Estado de selección */
 .stage-element.selected {
-    border: 2px solid var(--color-primary);
+    /* CORRECCIÓN: Usamos outline para evitar que el elemento salte de tamaño al seleccionarse. */
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px; /* Separa el contorno del borde del elemento */
+    border: none !important; /* Nos aseguramos de que no tenga borde de 2px */
     box-shadow: 0 0 8px var(--color-primary);
     cursor: default;
     position: relative;
+    z-index: 99; /* Asegurar que el elemento seleccionado esté siempre por encima */
 }
 
 .stage-element:hover {
@@ -518,9 +561,7 @@ body.init-screen #project-info-display {
 }
 
 body.dark-mode .stage-element {
-    background-color: rgba(255, 255, 255, 0.9);
-    color: #333;
-    border: 1px solid #333;
+    /* No tocamos el background/color aquí, se maneja por JS para la transparencia/color del ícono */
 }
 
 body.dark-mode .stage-element[data-type="text"] {
@@ -528,143 +569,134 @@ body.dark-mode .stage-element[data-type="text"] {
     background-color: transparent !important;
 }
 
-/* --- ESTILOS PARA MANEJADORES DE TRANSFORMACIÓN --- */
+/* Manejadores de Transformación */
 .resizer {
-    position: absolute;
     width: 10px;
     height: 10px;
     background: var(--color-primary);
     border: 1px solid white;
-    box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
-    z-index: 1001;
+    position: absolute;
 }
 
 .resizer.bottom-right {
     bottom: -5px;
     right: -5px;
-    cursor: nwse-resize;
+    cursor: se-resize;
 }
 
 .rotator {
+    width: 10px;
+    height: 10px;
+    background: #ffc107;
+    border: 1px solid white;
     position: absolute;
-    top: -20px;
+    top: -15px;
     left: 50%;
     transform: translateX(-50%);
-    width: 12px;
-    height: 12px;
-    background: var(--color-surface);
-    border: 2px solid var(--color-primary);
     border-radius: 50%;
-    cursor: crosshair;
-    z-index: 1001;
+    cursor: pointer;
 }
 
-/* --- PESTAÑAS DE TABLAS y RIDER --- */
+
+/* --- ESTILOS DE TABLAS (LISTA DE CANALES Y ENVÍOS) --- */
 .data-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 15px;
+    margin-top: 10px;
+    font-size: 0.9em;
 }
 
 .data-table th, .data-table td {
     padding: 10px;
-    border: 1px solid var(--color-border);
     text-align: left;
+    border: 1px solid var(--color-border);
 }
 
 .data-table th {
     background-color: var(--color-button-bg);
     font-weight: 600;
+    color: var(--color-text);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.data-table td {
+    background-color: var(--color-surface);
+}
+
+.data-table tr:hover td {
+    background-color: var(--color-button-hover);
+}
+
+/* Estilo para filas arrastrables */
+.data-table tr.dragging {
+    opacity: 0.5;
+}
+
+.data-table tr.drag-over td {
+    border-bottom: 2px solid var(--color-primary);
+    box-shadow: inset 0 -2px 0 var(--color-primary);
 }
 
 .data-table td[contenteditable="true"]:focus {
+    outline: none;
     background-color: var(--color-background);
-    outline: 1px solid var(--color-primary);
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
 }
 
-.text-editor {
-    min-height: 500px;
-    border: 1px solid var(--color-border);
-    padding: 20px;
-    margin-top: 15px;
-    background-color: var(--color-surface);
-    color: var(--color-text);
-}
-
-/* Estilos de la lista de canales (Input List) */
-.data-table .mic-input {
+.data-table input[type="text"], .data-table select {
     width: 100%;
     padding: 5px;
     border: 1px solid var(--color-border);
-    background-color: var(--color-surface);
+    border-radius: 3px;
+    background-color: var(--color-background);
     color: var(--color-text);
-    box-sizing: border-box;
-    font-size: 0.9em;
-}
-
-.data-table select {
-    padding: 5px;
-    border: 1px solid var(--color-border);
-    background-color: var(--color-surface);
-    color: var(--color-text);
-    width: 100%;
     box-sizing: border-box;
 }
 
-/* Estilos de la celda Sub-Snake */
+/* Estilo para la celda Phantom activa */
+.data-table .phantom-checkbox {
+    transform: scale(1.5);
+    margin-left: 10px;
+}
+
+.data-table td.phantom-active {
+    background-color: rgba(220, 53, 69, 0.1); /* Rojo sutil */
+    box-shadow: inset 0 0 5px rgba(220, 53, 69, 0.3);
+}
+
+/* Estilo para la celda Sub-Snake */
 .data-table .subsnake-cell {
-    padding: 0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    transition: background-color 0.2s; /* Para el cambio de color */
-    height: 40px; /* Asegura la altura uniforme */
+    gap: 5px;
+    padding: 5px; 
+    transition: background-color 0.2s;
 }
 
 .data-table .subsnake-name {
     flex-grow: 1;
-    padding: 5px 8px;
-    border: none;
-    background: transparent;
-    color: var(--color-text);
-    font-size: 0.9em;
+    min-width: 50px;
 }
 
 .data-table .subsnake-color-picker {
-    width: 30px;
-    height: 30px;
+    width: 25px;
+    height: 25px;
     padding: 0;
     border: none;
+    border-radius: 50%;
     cursor: pointer;
-    background: transparent;
-    margin: 0 5px;
+    overflow: hidden; /* Ocultar el control nativo */
 }
 
-.data-table .delete-btn {
-    background-color: #dc3545;
-    color: white;
-    padding: 5px 10px;
-    font-size: 0.8em;
+/* Estilos de tipo de envío */
+.send-type-select {
+    min-width: 80px;
 }
-
-/* Lógica del Drag and Drop en las tablas */
-.data-table tr.dragging {
-    opacity: 0.5;
-    background-color: var(--color-button-hover) !important; 
-}
-
-/* Indicador visual de la posición de arrastre (línea azul) */
-.data-table tr.drop-target-before {
-    border-top: 2px solid var(--color-primary);
-}
-
-.data-table tr.drop-target-after {
-    border-bottom: 2px solid var(--color-primary);
-}
-
 
 /* ---------------------------------------------------------------------- */
-/* --- SOLUCIÓN: VISIBILIDAD EN MODO NOCHE (Listas de Canales, Envíos, FOH) --- */
+/* --- MODIFICACIÓN: VISIBILIDAD EN MODO NOCHE (Listas de Canales, Envíos, FOH) --- */
 /* ---------------------------------------------------------------------- */
 
 /* 1. Asegura que el texto en todas las celdas sea claro */
@@ -692,15 +724,16 @@ body.dark-mode .data-table select {
 
 /* 3. Estilo para el input en foco en modo oscuro */
 body.dark-mode .data-table td[contenteditable="true"]:focus {
-    background-color: var(--color-surface);
+    background-color: var(--color-background) !important;
+    box-shadow: 0 0 5px var(--color-primary);
 }
+/* Archivo: style.css (Agregar al final) */
 
-/* 4. Estilo de celda Phantom Activa */
-.data-table .phantom-active {
-    background-color: #dc354520; /* Fondo rojo claro */
-    transition: background-color 0.3s;
-}
-
-body.dark-mode .data-table .phantom-active {
-    background-color: #dc354540; /* Fondo rojo más oscuro en dark mode */
+/* Estilo específico para la forma de línea */
+.stage-element[data-type="line-shape"] {
+    min-width: 100px;
+    min-height: 5px; /* Altura mínima para que parezca una línea */
+    border-radius: 0;
+    justify-content: flex-start;
+    align-items: flex-start;
 }
