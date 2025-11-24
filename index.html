@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>BARSTAGEplot</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -13,16 +13,23 @@
         <h1>BARSTAGEplot</h1>
         <div class="file-actions">
             <button class="btn" id="new-project-btn"><i class="fas fa-file"></i> Nuevo</button>
-            <button class="btn"><i class="fas fa-save"></i> Guardar</button>
-            <button class="btn"><i class="fas fa-folder-open"></i> Cargar</button>
+            <button class="btn" id="save-project-btn"><i class="fas fa-save"></i> Guardar</button>
+            <button class="btn" id="load-project-btn"><i class="fas fa-folder-open"></i> Cargar</button>
             <div class="export-menu">
-                <button class="btn"><i class="fas fa-share-square"></i> Exportar</button>
+                <button class="btn" id="export-project-btn"><i class="fas fa-share-square"></i> Exportar</button>
+                <button class="btn" id="print-rider-btn"><i class="fas fa-print"></i> Imprimir Rider</button>
             </div>
             <button class="btn" id="preferences-btn"><i class="fas fa-cog"></i> Preferencias</button>
         </div>
-        
+
         <div id="project-info-display">
-            </div>
+            <span>Proyecto: <strong id="header-project-name">N/A</strong></span>
+            <span>Gira: <strong id="header-tour-name">N/A</strong></span>
+            <span>Escenario: <strong id="header-stage-size">N/A</strong></span>
+            <span>Ch. Entrada: <strong id="header-channels">0</strong></span>
+            <span>Envíos: <strong id="header-sends">0</strong></span>
+        </div>
+
         <button id="theme-toggle" class="btn theme-day" title="Cambiar Tema">
             <i class="fas fa-moon"></i> Día/Noche
         </button>
@@ -45,10 +52,10 @@
                 <input type="text" id="stage-size" placeholder="Ej: 8m x 6m" required>
 
                 <label for="input-channels">Canales de entrada:</label>
-                <input type="number" id="input-channels" min="0" value="0" required> 
+                <input type="number" id="input-channels" min="0" value="0" required>
 
                 <label for="sends-count">Cantidad de envíos:</label>
-                <input type="number" id="sends-count" min="0" value="0" required> 
+                <input type="number" id="sends-count" min="0" value="0" required>
 
                 <button type="submit" class="btn primary-btn"><i class="fas fa-project-diagram"></i> Crear Proyecto</button>
             </form>
@@ -59,21 +66,23 @@
             <button class="tab-button" data-tab="input-list"><i class="fas fa-list-alt"></i> LISTA DE CANALES</button>
             <button class="tab-button" data-tab="sends-list"><i class="fas fa-volume-up"></i> ENVÍOS</button>
             <button class="tab-button" data-tab="foh-config"><i class="fas fa-sliders-h"></i> FOH</button>
-            </nav>
+            <button class="tab-button" data-tab="rider-menu"><i class="fas fa-file-contract"></i> RIDER</button>
+        </nav>
 
         <div id="tab-content">
 
             <section id="stage-plot" class="tab-screen">
-                
                 <aside id="element-palette">
                     <h3>Elementos <i class="fas fa-box-open"></i></h3>
-                    
                     <div id="palette-tabs">
                         <button class="palette-tab-button active" data-category="general" title="General"><i class="fas fa-cubes"></i></button>
                         <button class="palette-tab-button" data-category="mics" title="Micrófonos"><i class="fas fa-microphone"></i></button>
                         <button class="palette-tab-button" data-category="instruments" title="Instrumentos"><i class="fas fa-guitar"></i></button>
                         <button class="palette-tab-button" data-category="shapes" title="Formas"><i class="fas fa-square"></i></button>
                         <button class="palette-tab-button" data-category="text" title="Texto/Etiquetas"><i class="fas fa-font"></i></button>
+                        <!-- Añadidas categorías adicionales por si se desean más elementos -->
+                        <button class="palette-tab-button" data-category="lighting" title="Iluminación"><i class="fas fa-lightbulb"></i></button>
+                        <button class="palette-tab-button" data-category="video" title="Vídeo"><i class="fas fa-video"></i></button>
                     </div>
 
                     <div id="palette-content">
@@ -101,24 +110,26 @@
                             <div class="stage-icon" draggable="true" data-type="percussion"><i class="fas fa-bell"></i> Percusión</div>
                         </div>
                         <div id="category-shapes" class="palette-category">
-    <div class="stage-icon" data-type="square-shape" draggable="true">
-        <i class="fas fa-square"></i> Cuadrado
-    </div>
-    <div class="stage-icon" data-type="circle-shape" draggable="true">
-        <i class="fas fa-circle"></i> Círculo
-    </div>
-    <div class="stage-icon" data-type="line-shape" draggable="true">
-        <i class="fas fa-minus"></i> Línea
-    </div>
-    </div>
+                            <div class="stage-icon" data-type="square-shape" draggable="true"><i class="fas fa-square"></i> Cuadrado</div>
+                            <div class="stage-icon" data-type="circle-shape" draggable="true"><i class="fas fa-circle"></i> Círculo</div>
+                            <div class="stage-icon" data-type="line-shape" draggable="true"><i class="fas fa-minus"></i> Línea</div>
+                        </div>
                         <div id="category-text" class="palette-category">
                             <div class="stage-icon" draggable="true" data-type="text"><i class="fas fa-align-left" style="display: none;"></i> Etiqueta de Texto</div>
                         </div>
+                        <div id="category-lighting" class="palette-category">
+                            <div class="stage-icon" draggable="true" data-type="par-light"><i class="fas fa-lightbulb"></i> PAR</div>
+                            <div class="stage-icon" draggable="true" data-type="moving-head"><i class="fas fa-bolt"></i> Moving Head</div>
+                        </div>
+                        <div id="category-video" class="palette-category">
+                            <div class="stage-icon" draggable="true" data-type="projector"><i class="fas fa-video"></i> Proyector</div>
+                            <div class="stage-icon" draggable="true" data-type="screen"><i class="fas fa-tv"></i> Pantalla</div>
+                        </div>
                     </div>
                 </aside>
-                
+
                 <main id="canvas-area">
-                    <div id="stage-canvas" class="a4-proportional">
+                    <div id="stage-canvas" class="a4-proportional show-grid">
                         <p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>
                     </div>
                 </main>
@@ -133,10 +144,10 @@
                             <input type="checkbox" id="grid-toggle" checked> Mostrar Rejilla
                         </label>
                     </div>
-                    
+
                     <div id="element-controls" style="display: none;">
                         <h4 id="selected-element-title">Elemento Seleccionado</h4>
-                        
+
                         <label for="element-name-input">Nombre/Etiqueta:</label>
                         <input type="text" id="element-name-input">
                         <label for="color-picker">Color de Fondo:</label>
@@ -146,6 +157,7 @@
                         <select id="shape-selector">
                             <option value="square">Cuadrado</option>
                             <option value="circle">Círculo</option>
+                            <option value="line">Línea</option>
                         </select>
 
                         <label for="z-index-selector">Nivel de Profundidad (Z-Index):</label>
@@ -153,11 +165,10 @@
 
                         <label for="scale-selector">Escala:</label>
                         <input type="range" id="scale-selector" min="0.5" max="2.0" step="0.1" value="1.0">
-                        
+
                         <button id="delete-element-btn" class="btn primary-btn" style="background-color: #dc3545;"><i class="fas fa-trash"></i> Eliminar Elemento</button>
                     </div>
                 </aside>
-
             </section>
 
             <section id="input-list" class="tab-screen">
@@ -177,14 +188,14 @@
                         </tr>
                     </thead>
                     <tbody id="input-list-body">
-                        </tbody>
+                    </tbody>
                 </table>
             </section>
 
             <section id="sends-list" class="tab-screen">
                 <h2><i class="fas fa-volume-up"></i> Envíos (Sends List)</h2>
                 <button id="add-send-btn" class="btn primary-btn add-btn-top"><i class="fas fa-plus"></i> Añadir Envío</button>
-                 <table class="data-table">
+                <table class="data-table">
                     <thead>
                         <tr>
                             <th>Send</th>
@@ -197,11 +208,11 @@
                         </tr>
                     </thead>
                     <tbody id="sends-list-body">
-                        </tbody>
+                    </tbody>
                 </table>
             </section>
-            
-             <section id="foh-config" class="tab-screen">
+
+            <section id="foh-config" class="tab-screen">
                 <h2><i class="fas fa-sliders-h"></i> Configuración FOH</h2>
                 <form id="foh-config-form" class="pref-section">
                     <h4>Configuración de Consola</h4>
@@ -210,17 +221,36 @@
 
                     <label for="foh-patch-details">Detalles de Patching:</label>
                     <textarea id="foh-patch-details" rows="4">Entradas 1-16 en preamps. Buses de salida: L/R (PA), Aux 1-4 (Monitores).</textarea>
-                    
+
                     <button type="submit" class="btn primary-btn"><i class="fas fa-save"></i> Guardar Configuración FOH</button>
                 </form>
             </section>
 
         </div>
-        
+
+        <section id="rider-menu" class="tab-screen">
+            <h2><i class="fas fa-file-contract"></i> Rider Técnico (Vista final)</h2>
+
+            <div class="pref-section">
+                <h3>Información / Notas del Rider</h3>
+                <p id="rider-contact" contenteditable="true">Manager: [Nombre] - [Teléfono] - [Email]</p>
+                <p id="rider-sound" contenteditable="true">Técnico de Sonido: [Nombre] - [Teléfono] - [Email]</p>
+            </div>
+
+            <div class="pref-section">
+                <h3>Vista final (Plano, Listas y Envíos)</h3>
+                <p style="font-size:0.95em; color:var(--color-text);">Aquí se muestra la vista final combinada tal como se exportará/imprimirá: primero la información del Rider, luego el plano (sin rejilla) y las listas. La columna "Eliminar" está oculta en esta vista final.</p>
+
+                <div id="rider-preview" class="rider-preview">
+                    <!-- El preview se genera dinámicamente por script.js -->
+                </div>
+            </div>
+        </section>
+
         <section id="preferences-screen" class="app-screen">
             <div class="preferences-container">
                 <h2 class="pref-title"><i class="fas fa-cog"></i> Preferencias del Proyecto</h2>
-                
+
                 <div class="pref-section">
                     <h3>Información y Canales</h3>
                     <form id="project-preferences-form">
@@ -241,20 +271,21 @@
 
                         <label for="pref-sends-count">Cantidad de envíos:</label>
                         <input type="number" id="pref-sends-count" min="0" required>
-                        
+
                         <button type="submit" class="btn primary-btn"><i class="fas fa-save"></i> Guardar Cambios</button>
                     </form>
                 </div>
-                
+
                 <div class="pref-section">
                     <h3>Otros Ajustes</h3>
                     <p>Modo Día/Noche: Usa el botón en la barra superior para cambiar el tema visual.</p>
                 </div>
-                
+
                 <button id="close-preferences-btn" class="btn"><i class="fas fa-times"></i> Cerrar</button>
             </div>
         </section>
-        </div>
+
+    </div>
 
     <script src="script.js"></script>
 </body>
