@@ -80,9 +80,9 @@
                         <button class="palette-tab-button" data-category="instruments" title="Instrumentos"><i class="fas fa-guitar"></i></button>
                         <button class="palette-tab-button" data-category="shapes" title="Formas"><i class="fas fa-square"></i></button>
                         <button class="palette-tab-button" data-category="text" title="Texto/Etiquetas"><i class="fas fa-font"></i></button>
-                        <!-- Añadidas categorías adicionales por si se desean más elementos -->
                         <button class="palette-tab-button" data-category="lighting" title="Iluminación"><i class="fas fa-lightbulb"></i></button>
                         <button class="palette-tab-button" data-category="video" title="Vídeo"><i class="fas fa-video"></i></button>
+                        <button class="palette-tab-button" data-category="custom" title="Personalizados"><i class="fas fa-image"></i></button>
                     </div>
 
                     <div id="palette-content">
@@ -95,6 +95,8 @@
                             <div class="stage-icon" draggable="true" data-type="keyboard"><i class="fas fa-compact-disc"></i> Teclado</div>
                             <div class="stage-icon" draggable="true" data-type="vocalist"><i class="fas fa-user-circle"></i> Vocalista</div>
                             <div class="stage-icon" draggable="true" data-type="musician"><i class="fas fa-user"></i> Músico</div>
+                            <!-- Tarima 2m x 1m -->
+                            <div class="stage-icon" draggable="true" data-type="platform-2x1"><i class="fas fa-th-large"></i> Tarima 2m x 1m</div>
                         </div>
                         <div id="category-mics" class="palette-category">
                             <div class="stage-icon" draggable="true" data-type="mic-stand"><i class="fas fa-microphone-alt"></i> Micrófono Pie Alto</div>
@@ -125,11 +127,19 @@
                             <div class="stage-icon" draggable="true" data-type="projector"><i class="fas fa-video"></i> Proyector</div>
                             <div class="stage-icon" draggable="true" data-type="screen"><i class="fas fa-tv"></i> Pantalla</div>
                         </div>
+                        <div id="category-custom" class="palette-category">
+                            <div style="padding:8px;">
+                                <label for="custom-icon-input" style="display:block; margin-bottom:6px; font-weight:600;">Importar icono personalizado</label>
+                                <input type="file" id="custom-icon-input" accept="image/*">
+                                <small style="display:block; margin-top:8px; color:var(--color-text);">El icono importado aparecerá en la paleta y podrá arrastrarse al plano.</small>
+                            </div>
+                        </div>
                     </div>
                 </aside>
 
                 <main id="canvas-area">
                     <div id="stage-canvas" class="a4-proportional show-grid">
+                        <div id="canvas-rulers" aria-hidden="true"></div>
                         <p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>
                     </div>
                 </main>
@@ -166,14 +176,25 @@
                         <label for="scale-selector">Escala:</label>
                         <input type="range" id="scale-selector" min="0.5" max="2.0" step="0.1" value="1.0">
 
-                        <button id="delete-element-btn" class="btn primary-btn" style="background-color: #dc3545;"><i class="fas fa-trash"></i> Eliminar Elemento</button>
+                        <label style="margin-top:8px;"><input type="checkbox" id="show-label-checkbox"> Mostrar etiqueta</label>
+
+                        <div style="display:flex; gap:8px; margin-top:10px;">
+                            <button id="duplicate-element-btn" class="btn"><i class="fas fa-clone"></i> Duplicar</button>
+                            <button id="copy-element-btn" class="btn"><i class="fas fa-copy"></i> Copiar</button>
+                            <button id="paste-element-btn" class="btn"><i class="fas fa-paste"></i> Pegar</button>
+                        </div>
+
+                        <button id="delete-element-btn" class="btn primary-btn" style="background-color: #dc3545; margin-top:10px;"><i class="fas fa-trash"></i> Eliminar Elemento</button>
                     </div>
                 </aside>
             </section>
 
             <section id="input-list" class="tab-screen">
                 <h2><i class="fas fa-list-alt"></i> Lista de Canales (Input List)</h2>
-                <button id="add-input-channel-btn" class="btn primary-btn add-btn-top"><i class="fas fa-plus"></i> Añadir Canal</button>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                    <button id="add-input-channel-btn" class="btn primary-btn add-btn-top"><i class="fas fa-plus"></i> Añadir Canal</button>
+                    <button id="add-input-column-btn" class="btn add-column-btn"><i class="fas fa-columns"></i> Añadir Columna</button>
+                </div>
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -194,7 +215,10 @@
 
             <section id="sends-list" class="tab-screen">
                 <h2><i class="fas fa-volume-up"></i> Envíos (Sends List)</h2>
-                <button id="add-send-btn" class="btn primary-btn add-btn-top"><i class="fas fa-plus"></i> Añadir Envío</button>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                    <button id="add-send-btn" class="btn primary-btn add-btn-top"><i class="fas fa-plus"></i> Añadir Envío</button>
+                    <button id="add-send-column-btn" class="btn add-column-btn"><i class="fas fa-columns"></i> Añadir Columna</button>
+                </div>
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -233,8 +257,10 @@
 
             <div class="pref-section">
                 <h3>Información / Notas del Rider</h3>
-                <p id="rider-contact" contenteditable="true">Manager: [Nombre] - [Teléfono] - [Email]</p>
-                <p id="rider-sound" contenteditable="true">Técnico de Sonido: [Nombre] - [Teléfono] - [Email]</p>
+                <label for="rider-tour-title" style="font-weight:700;">Título de la Gira (editable):</label>
+                <input type="text" id="rider-tour-title" value="Nombre de la Gira" style="width:100%; margin-bottom:8px;">
+                <label for="rider-editor" style="font-weight:700; margin-top:8px;">Editor de texto (notas / requerimientos técnicos):</label>
+                <div id="rider-editor" contenteditable="true" style="min-height:120px; border:1px solid var(--color-border); padding:8px; margin-top:6px; background:var(--color-surface);">Aquí puedes escribir las notas técnicas, necesidades del evento, detalles de contacto y cualquier información adicional para el técnico.</div>
             </div>
 
             <div class="pref-section">

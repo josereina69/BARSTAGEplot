@@ -88,7 +88,38 @@ body {
 #canvas-area { flex-grow:1; background-color:var(--color-background); padding:20px; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.05); position:relative; overflow:auto; display:flex; justify-content:center; align-items:center; }
 #stage-canvas { position:relative; background-color:var(--color-surface); box-shadow:0 0 10px rgba(0,0,0,0.2); width:100%; max-width:1000px; aspect-ratio:700/495; border:1px solid var(--color-border); user-select:none; cursor:grab; overflow:hidden; background-image:none; background-size:25px 25px; background-position:0 0; transition:background-image 0.2s; }
 #stage-canvas.show-grid { background-image: linear-gradient(to right, var(--color-border) 1px, transparent 1px), linear-gradient(to bottom, var(--color-border) 1px, transparent 1px); opacity:0.8; }
+
 .canvas-placeholder { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:1.1em; color:var(--color-text); padding:10px; border-radius:5px; text-align:center; pointer-events:none; z-index:1; }
+
+#stage-canvas.show-grid::before, #stage-canvas.show-grid::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+}
+#stage-canvas.show-grid::before {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(0,0,0,0.25);
+    transform: translateX(-50%);
+}
+#stage-canvas.show-grid::after {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: rgba(0,0,0,0.25);
+    transform: translateY(-50%);
+}
+
+/* Rulers and center line */
+#canvas-rulers { position:absolute; left:0; top:0; right:0; bottom:0; pointer-events:none; z-index:2; }
+.ruler { position:absolute; left:0; height:18px; background: transparent; top:0; border-bottom:1px solid rgba(0,0,0,0.06); }
+.ruler.bottom-ruler { bottom:0; top:auto; border-top:1px solid rgba(0,0,0,0.06); background: transparent; }
+.ruler.ticks { position:absolute; top:0; left:0; right:0; pointer-events:none; }
+.ruler-center-marker-vertical { z-index:3; }
+.canvas-center-line { z-index:3; }
 
 /* Element config panel */
 #element-config-panel { width:250px; min-width:200px; background-color:var(--secondary-bg); border-radius:8px; padding:20px; display:flex; flex-direction:column; margin-left:20px; }
@@ -100,52 +131,179 @@ body {
 .rotator { width:10px; height:10px; background:#ffc107; border:1px solid white; position:absolute; top:-15px; left:50%; transform:translateX(-50%); border-radius:50%; cursor:pointer; }
 
 /* Stage elements */
-.stage-element { position:absolute; cursor:move; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:0.9em; font-weight:600; min-width:50px; min-height:50px; user-select:none; transition:box-shadow 0.1s; }
+.stage-element { position:absolute; cursor:move; display:flex; flex-direction:column; justify-content:center; align-items:center; font-size:0.9em; font-weight:600; min-width:50px; min-height:50px; user-select:none; transition:box-shadow 0.1s; z-index:5; }
 .stage-element i { font-size:1.5em; margin-bottom:2px; }
 .stage-element.shape-circle { border-radius:50%; }
 .stage-element.shape-square { border-radius:4px; }
 .stage-element[data-type="text"] { background-color:transparent !important; color:var(--color-text); padding:2px 5px; min-width:25px; min-height:25px; font-weight:normal; }
 .stage-element.dragging { opacity:0.5; }
 .stage-element.selected { outline:2px solid var(--color-primary); outline-offset:1px; box-shadow:0 0 8px var(--color-primary); cursor:default; position:relative; z-index:99; }
+.stage-element.multi-selected { outline:2px dashed var(--color-primary); outline-offset:1px; box-shadow:none; cursor:move; }
 .stage-element:hover { box-shadow:0 2px 5px rgba(0,0,0,0.3); }
 
-/* Tables */
-.data-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:0.9em; }
-.data-table th, .data-table td { padding:10px; text-align:left; border:1px solid var(--color-border); vertical-align:middle; }
-.data-table th { background-color:var(--color-button-bg); font-weight:600; position:sticky; top:0; z-index:2; }
-.data-table td { background-color:var(--color-surface); }
-.data-table tr:hover td { background-color:var(--color-button-hover); }
-.data-table td[contenteditable="true"]:focus { outline:none; background-color:var(--color-background); box-shadow:0 0 5px rgba(0,123,255,0.5); }
-.data-table .phantom-checkbox { transform:scale(1.5); margin-left:10px; }
-.data-table td.phantom-active { background-color: rgba(220,53,69,0.1); box-shadow: inset 0 0 5px rgba(220,53,69,0.3); }
-.data-table .subsnake-cell { display:flex; align-items:center; gap:5px; padding:5px; transition:background-color 0.2s; }
-.data-table .subsnake-name { flex-grow:1; min-width:50px; }
-.data-table .subsnake-color-picker { width:25px; height:25px; padding:0; border:none; border-radius:50%; cursor:pointer; }
+/* element label */
+.element-label { font-size:0.85em; color:var(--color-text); background:transparent; margin-top:4px; }
 
-/* Rider preview styles */
-.rider-preview { display:flex; flex-direction:column; gap:14px; color:var(--color-text); }
-.rider-section { padding:12px; border:1px solid var(--color-border); border-radius:6px; background:var(--color-surface); }
-.rider-section h3 { margin-bottom:8px; color:var(--color-primary); }
-
-/* Ensure preview tables look good */
-.rider-preview .data-table { font-size:13px; }
-
-/* Static canvas inside preview */
-.rider-preview #stage-canvas, .rider-preview #stage-canvas-static {
-    border:1px solid #ccc;
-    box-shadow:none;
-    background-image:none !important;
-    background-color: var(--color-surface);
+/* Tables - estilo de rejilla clásica con celdas y columnas claramente visibles */
+.data-table {
+    width: 100%;
+    border-collapse: collapse; /* bordes separados por celda, pero con collapse para líneas limpias */
+    margin-top: 10px;
+    font-size: 0.95em;
+    background: var(--color-surface);
     color: var(--color-text);
+    table-layout: fixed; /* columnas con ancho fijo para alineación */
 }
 
-/* Dark mode table inputs */
-body.dark-mode .data-table td, body.dark-mode .data-table th, body.dark-mode .data-table td[contenteditable="true"] { color:var(--color-text) !important; }
-body.dark-mode .data-table input[type="text"], body.dark-mode .data-table select, body.dark-mode .data-table .mic-input, body.dark-mode .data-table .subsnake-name { background-color:var(--color-surface) !important; color:var(--color-text) !important; border:1px solid var(--color-border) !important; }
-
-/* Print styles to keep contrast */
-@media print {
-    body { background: #fff !important; color: #000 !important; }
-    .rider-section { background: #fff !important; border: none !important; box-shadow: none !important; }
-    .rider-preview .data-table th, .rider-preview .data-table td { color: #000 !important; background: #fff !important; }
+/* Cabecera con fondo suave y borde definido */
+.data-table thead th {
+    text-align: left;
+    padding: 10px 12px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.03), transparent);
+    border: 1px solid var(--color-border);
+    border-bottom-width: 2px;
+    font-weight: 700;
+    color: var(--color-text);
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+    cursor: move;
 }
+
+/* Visual cue when dragging header */
+.data-table thead th.th-dragging {
+    opacity: 0.6;
+    outline: 2px dashed rgba(0,123,255,0.6);
+}
+
+/* Cues for drop targets */
+.data-table thead th.col-drag-over {
+    background: linear-gradient(180deg, rgba(0,123,255,0.08), rgba(0,123,255,0.02));
+}
+
+/* Celdas con borde por celda y separación clara de columnas */
+.data-table tbody td {
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    vertical-align: middle;
+    color: var(--color-text);
+    background: transparent;
+    word-wrap: break-word;
+}
+
+/* Alternancia de filas para legibilidad */
+.data-table tbody tr:nth-child(even) td {
+    background: rgba(0,0,0,0.02);
+}
+
+/* Cuando el usuario copia el preview / export, mantener apariencia legible */
+.data-table th, .data-table td {
+    box-sizing: border-box;
+}
+
+/* Inputs y selects dentro de tabla: discretos pero legibles */
+.data-table input[type="text"], .data-table input[type="color"], .data-table select, .data-table input[type="number"] {
+    padding: 6px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-background);
+    color: var(--color-text);
+    font-size: 0. nine em;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Ajuste para mostradores de color dentro de celda */
+.data-table td .color-box {
+    display:inline-block;
+    width:16px;
+    height:16px;
+    border:1px solid #ccc;
+    vertical-align: middle;
+    margin-right:6px;
+}
+
+/* Botón eliminar: pequeño e identificado, pero integrado en la celda */
+.delete-btn {
+    padding: 6px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+.delete-btn:hover {
+    background: rgba(220,53,69,0.08);
+    color: #dc3545;
+    border-color: rgba(220,53,69,0.12);
+}
+
+/* Alineaciones útiles */
+.data-table td[data-label="Ch"], .data-table td[data-label="Send"] {
+    width: 6%;
+    max-width: 60px;
+    text-align: center;
+    font-weight: 700;
+}
+.data-table td[data-label="Phantom"] {
+    width: 8%;
+    text-align: center;
+}
+.data-table td[data-label="Eliminar"] {
+    width: 8%;
+    text-align: center;
+}
+
+/* Placeholder para celdas contenteditable (nombre de canal) */
+.data-table td[contenteditable="true"][data-placeholder]:empty:before {
+    content: attr(data-placeholder);
+    color: #8b8b8b;
+    pointer-events: none;
+    font-style: italic;
+    display: inline-block;
+}
+
+/* Styles for add-column button */
+.add-column-btn { background: #f0f0f0; border: 1px solid var(--color-border); padding: 6px 10px; border-radius: 6px; display:inline-flex; gap:8px; align-items:center; }
+
+/* Column creation modal overlay */
+.column-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+}
+.column-modal {
+    background: var(--color-surface);
+    color: var(--color-text);
+    padding: 16px;
+    border-radius: 8px;
+    width: 340px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.column-modal h3 { margin-bottom: 8px; }
+.column-modal label { display:block; margin-top:8px; font-weight:600; }
+.column-modal input[type="text"], .column-modal select, .column-modal input[type="checkbox"], .column-modal textarea {
+    width:100%;
+    padding:8px;
+    margin-top:6px;
+    border:1px solid var(--color-border);
+    border-radius:6px;
+    background:var(--color-background);
+    color:var(--color-text);
+}
+.column-modal .modal-actions { display:flex; gap:8px; margin-top:12px; justify-content:flex-end; }
+
+@media (max-width: 900px) {
+    #element-palette, #element-config-panel { display: none; }
+    #stage-canvas { max-width: 100%; }
+    .data-table thead th, .data-table tbody td { padding: 8px; font-size: 0.9em; }
+}
+
+/* End of stylesheet */
