@@ -1,6 +1,6 @@
 /* script.js - Versión corregida y completa con:
    - Corrección de errores que impedían "Crear Proyecto".
-   - Implementación conservadora de "Añadir Columna" (texto/color/checkbox/select/number).
+   - Implementación de "Añadir Columna" con opciones para RENOMBRAR y ELIMINAR la columna creada.
    - Persistencia de columnas adicionales en el snapshot y restauración al cargar.
    - Conservadas las funcionalidades previas (Sub-Snake color, canvas, guardar/cargar, exportar/print).
    - Eliminadas referencias a importInputs (UI removida).
@@ -311,16 +311,30 @@ document.addEventListener('DOMContentLoaded', () => {
     return arr.find(c => c.label === label);
   }
 
+  function findExtraColumnById(id, forTable = 'input') {
+    const arr = forTable === 'input' ? inputExtraColumns : sendExtraColumns;
+    return arr.find(c => c.id === id);
+  }
+
   function addExtraColumnDefinition(def, forTable = 'input', skipDOM = false) {
     // def: { label, type, options, exportable }
     if (!def || !def.label) return false;
     const targetArr = forTable === 'input' ? inputExtraColumns : sendExtraColumns;
-    // avoid duplicates by label
-    if (targetArr.some(c => c.label === def.label)) {
-      alert(`Ya existe una columna con el nombre "${def.label}". Elige otro nombre.`);
+    // avoid duplicates by label across both tables and default headers
+    const labelTrim = def.label.trim();
+    if (!labelTrim) return false;
+    const collisionInInputs = inputExtraColumns.some(c => c.label.toLowerCase() === labelTrim.toLowerCase());
+    const collisionInSends = sendExtraColumns.some(c => c.label.toLowerCase() === labelTrim.toLowerCase());
+    const defaultCollisionInput = INPUT_DEFAULT_HEADERS.some(h => h.toLowerCase() === labelTrim.toLowerCase());
+    const defaultCollisionSend = SEND_DEFAULT_HEADERS.some(h => h.toLowerCase() === labelTrim.toLowerCase());
+
+    if ((forTable === 'input' && (collisionInInputs || collisionInSends || defaultCollisionInput)) ||
+        (forTable === 'send' && (collisionInInputs || collisionInSends || defaultCollisionSend))) {
+      alert(`Ya existe una columna con el nombre "${labelTrim}". Elige otro nombre.`);
       return false;
     }
-    const col = { id: makeColumnId(forTable), label: def.label, type: def.type || 'text', options: def.options || [], exportable: def.exportable !== false };
+
+    const col = { id: makeColumnId(forTable), label: labelTrim, type: def.type || 'text', options: def.options || [], exportable: def.exportable !== false };
     targetArr.push(col);
     if (!skipDOM) addColumnToTableDOM(col, forTable);
     attachColumnDragHandlersToAllTables();
@@ -338,8 +352,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const headerRow = thead.querySelector('tr');
     // Insert TH before last TH (Eliminar)
     const th = document.createElement('th');
-    th.textContent = colDef.label;
     th.dataset.dynamic = '1';
+    th.dataset.colId = colDef.id;
+    th.dataset.label = colDef.label;
+
+    // build inner: label span + small controls
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'col-label';
+    labelSpan.textContent = colDef.label;
+    labelSpan.style.marginRight = '8px';
+    th.appendChild(labelSpan);
+
+    const btnRename = document.createElement('button');
+    btnRename.type = 'button';
+    btnRename.className = 'btn rename-col-btn';
+    btnRename.title = 'Renombrar columna';
+    btnRename.style.padding = '4px 6px';
+    btnRename.style.fontSize = '0.75em';
+    btnRename.style.marginRight = '4px';
+    btnRename.innerHTML = '<i class="fas fa-edit"></i>';
+    th.appendChild(btnRename);
+
+    const btnDelete = document.createElement('button');
+    btnDelete.type = 'button';
+    btnDelete.className = 'btn delete-col-btn';
+    btnDelete.title = 'Eliminar columna';
+    btnDelete.style.padding = '4px 6px';
+    btnDelete.style.fontSize = '0.75em';
+    btnDelete.innerHTML = '<i class="fas fa-trash"></i>';
+    th.appendChild(btnDelete);
+
     const headers = Array.from(headerRow.children);
     const last = headers[headers.length - 1];
     headerRow.insertBefore(th, last);
@@ -352,6 +394,76 @@ document.addEventListener('DOMContentLoaded', () => {
       const lastCell = cells[cells.length - 1];
       row.insertBefore(td, lastCell);
     });
+
+    // Attach rename/delete handlers
+    btnRename.addEventListener('click', () => {
+      const oldLabel = colDef.label;
+      const newName = prompt('Nuevo nombre de la columna:', oldLabel);
+      if (!newName) return;
+      const newTrim = newName.trim();
+      if (!newTrim) { alert('El nombre no puede estar vacío.'); return; }
+
+      // check duplication across headers and extra columns
+      const duplicate = (() => {
+        const cmp = newTrim.toLowerCase();
+        if (INPUT_DEFAULT_HEADERS.some(h => h.toLowerCase() === cmp)) return true;
+        if (SEND_DEFAULT_HEADERS.some(h => h.toLowerCase() === cmp)) return true;
+        if (forTable === 'input') {
+          if (inputExtraColumns.some(c => c.label.toLowerCase() === cmp && c.id !== colDef.id)) return true;
+          if (sendExtraColumns.some(c => c.label.toLowerCase() === cmp)) return true;
+        } else {
+          if (sendExtraColumns.some(c => c.label.toLowerCase() === cmp && c.id !== colDef.id)) return true;
+          if (inputExtraColumns.some(c => c.label.toLowerCase() === cmp)) return true;
+        }
+        return false;
+      })();
+
+      if (duplicate) { alert('Ya existe otra columna con este nombre. Elige otro.'); return; }
+
+      // Update definition
+      colDef.label = newTrim;
+      // update th data-label and labelSpan
+      th.dataset.label = newTrim;
+      labelSpan.textContent = newTrim;
+
+      // update all rows td[data-label=oldLabel] => set to new label and update inner controls if needed
+      const tableRows = tbody.querySelectorAll('tr');
+      tableRows.forEach(r => {
+        const td = Array.from(r.children).find(c => (c.getAttribute('data-label') || '').toString() === oldLabel);
+        if (td) {
+          td.setAttribute('data-label', newTrim);
+        }
+      });
+
+      scheduleRiderPreview();
+      attachColumnDragHandlersToAllTables();
+    });
+
+    btnDelete.addEventListener('click', () => {
+      const confirmed = confirm(`¿Eliminar la columna "${colDef.label}"? Esta acción quitará la columna de todas las filas.`);
+      if (!confirmed) return;
+      // remove def from array
+      if (forTable === 'input') inputExtraColumns = inputExtraColumns.filter(c => c.id !== colDef.id);
+      else sendExtraColumns = sendExtraColumns.filter(c => c.id !== colDef.id);
+
+      // remove TH
+      th.remove();
+
+      // remove all TDs in tbody that had data-label === colDef.label
+      Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+        const tds = Array.from(row.children);
+        tds.forEach(td => {
+          if ((td.getAttribute('data-label') || '') === colDef.label) td.remove();
+        });
+      });
+
+      // After deletion, ensure numbers/update
+      if (forTable === 'input') updateChannelNumbers(); else updateSendNumbers();
+      scheduleRiderPreview();
+      attachColumnDragHandlersToAllTables();
+    });
+
+    attachColumnDragHandlersToAllTables();
   }
 
   function createCellForColumn(colDef, defaultValue = null) {
@@ -431,7 +543,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!table) return defaultOrder;
     const ths = table.querySelectorAll('thead th');
     if (!ths || ths.length === 0) return defaultOrder;
-    return Array.from(ths).map(th => th.textContent.trim());
+    // Prefer data-label if present (helps when TH contains buttons)
+    return Array.from(ths).map(th => ((th.dataset && th.dataset.label) ? th.dataset.label : th.textContent).trim());
   }
 
   const INPUT_DEFAULT_HEADERS = ['Ch', 'Nombre de canal', 'Mic/DI', 'Phantom', 'Pie', 'Sub-Snake', 'Notas', 'Eliminar'];
@@ -801,7 +914,13 @@ document.addEventListener('DOMContentLoaded', () => {
     inputListBody.innerHTML = '';
     for (let i = 1; i <= count; i++) inputListBody.appendChild(createChannelRow(i));
     // If there are extra column definitions, ensure they are in the header and rows
-    inputExtraColumns.forEach(col => addColumnToTableDOM(col, 'input'));
+    inputExtraColumns.forEach(col => {
+      // if header already has it skip
+      const table = document.querySelector('#input-list .data-table');
+      if (table && !Array.from(table.querySelectorAll('thead th')).some(th => (th.dataset && th.dataset.colId) === col.id)) {
+        addColumnToTableDOM(col, 'input');
+      }
+    });
     updateChannelNumbers();
     scheduleRiderPreview();
     attachColumnDragHandlersToAllTables(); // ensure headers draggable for columns
@@ -816,7 +935,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inputExtraColumns.forEach(col => {
       // ensure headers exist (avoid duplicates)
       const table = document.querySelector('#input-list .data-table');
-      if (table && !Array.from(table.querySelectorAll('thead th')).some(th => th.textContent.trim() === col.label)) {
+      if (table && !Array.from(table.querySelectorAll('thead th')).some(th => (th.dataset && th.dataset.colId) === col.id)) {
         addColumnToTableDOM(col, 'input');
       }
     });
@@ -906,7 +1025,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function initializeSendsList(count) {
     sendsListBody.innerHTML = '';
     for (let i = 1; i <= count; i++) sendsListBody.appendChild(createSendRow(i));
-    sendExtraColumns.forEach(col => addColumnToTableDOM(col, 'send'));
+    sendExtraColumns.forEach(col => {
+      const table = document.querySelector('#sends-list .data-table');
+      if (table && !Array.from(table.querySelectorAll('thead th')).some(th => (th.dataset && th.dataset.colId) === col.id)) {
+        addColumnToTableDOM(col, 'send');
+      }
+    });
     updateSendNumbers();
     scheduleRiderPreview();
     attachColumnDragHandlersToAllTables();
@@ -919,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     sendExtraColumns.forEach(col => {
       const table = document.querySelector('#sends-list .data-table');
-      if (table && !Array.from(table.querySelectorAll('thead th')).some(th => th.textContent.trim() === col.label)) {
+      if (table && !Array.from(table.querySelectorAll('thead th')).some(th => (th.dataset && th.dataset.colId) === col.id)) {
         addColumnToTableDOM(col, 'send');
       }
     });
@@ -2187,15 +2311,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!thead) return;
       thead.innerHTML = '';
       const tr = document.createElement('tr');
-      // insert default headers up to before last (Eliminar)
+      // insert default headers
       defaultHeaders.forEach(h => {
         const th = document.createElement('th');
         th.textContent = h;
         tr.appendChild(th);
       });
-      // Now inject dynamic headers: place them before last column (Eliminar) if not already present
-      // We'll rebuild by removing current last and re-inserting dynamic before it:
-      // (since defaultHeaders already include 'Eliminar' at the end, dynamic ones were appended via createChannelRow())
       thead.appendChild(tr);
     }
 
@@ -2331,7 +2452,8 @@ document.addEventListener('DOMContentLoaded', () => {
       headerCells.forEach((th, idx) => {
         if (idx === lastIndex) return;
         const nth = document.createElement('th');
-        nth.textContent = th.textContent.trim();
+        const label = (th.dataset && th.dataset.label) ? th.dataset.label : th.textContent.trim();
+        nth.textContent = label;
         tr.appendChild(nth);
       });
       newThead.appendChild(tr);

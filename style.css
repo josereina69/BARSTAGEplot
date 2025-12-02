@@ -267,7 +267,22 @@ body {
 }
 
 /* Styles for add-column button */
-.add-column-btn { background: #f0f0f0; border: 1px solid var(--color-border); padding: 6px 10px; border-radius: 6px; display:inline-flex; gap:8px; align-items:center; }
+.add-column-btn {
+    /* Ahora utiliza el mismo look & feel que .primary-btn para que coincida con "Añadir Canal" */
+    background-color: var(--color-primary);
+    color: #fff;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 600;
+}
+.add-column-btn:hover {
+    filter: brightness(0.95);
+}
 
 /* Column creation modal overlay */
 .column-modal-overlay {
@@ -307,3 +322,71 @@ body {
 }
 
 /* End of stylesheet */
+
+/* ----------------------------------------------------------
+   ADDITIONAL STYLES FOR COLUMN HEADER CONTROLS (RENAME/DELETE)
+   These styles are minimal, coherent with the theme and
+   provide hover feedback for the small buttons placed in THs.
+   ---------------------------------------------------------- */
+
+.data-table th .col-label {
+    vertical-align: middle;
+    display: inline-block;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Small control buttons inside TH headers */
+.data-table th .btn.rename-col-btn,
+.data-table th .btn.delete-col-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 4px 6px;
+    margin-left: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--color-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.08s ease;
+    font-size: 0.85em;
+    line-height: 1;
+}
+
+/* Hover / focus states */
+.data-table th .btn.rename-col-btn:hover,
+.data-table th .btn.rename-col-btn:focus {
+    background: rgba(0,123,255,0.08);
+    color: var(--color-primary);
+    transform: translateY(-1px);
+    border-color: rgba(0,123,255,0.08);
+}
+.data-table th .btn.delete-col-btn:hover,
+.data-table th .btn.delete-col-btn:focus {
+    background: rgba(220,53,69,0.08);
+    color: #dc3545;
+    transform: translateY(-1px);
+    border-color: rgba(220,53,69,0.10);
+}
+
+/* Make icons slightly larger and centered */
+.data-table th .btn i {
+    display: inline-block;
+    font-size: 0.95em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    .data-table th .btn.rename-col-btn,
+    .data-table th .btn.delete-col-btn {
+        padding: 3px 5px;
+        font-size: 0.75em;
+        margin-left: 4px;
+    }
+    .data-table th .col-label {
+        max-width: 80px;
+    }
+}
