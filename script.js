@@ -1,12 +1,10 @@
-/* script.js - Versión completa corregida
-   - Conserva todas las funcionalidades previas (crear proyecto, listas, columnas dinámicas, canvas, guardar/cargar, exportar, impresión, etc.)
-   - Añadido: botón "Mostrar / Ocultar Etiquetas" en el panel de Opciones del Plano.
-     Este botón controla la visibilidad global de las etiquetas del canvas: solo se muestran
-     las etiquetas de los elementos que tienen su flag individual (dataset.showLabel === '1')
-     y además la visibilidad global esté activada.
-   - Cambios mínimos y localizados: lógica para gestionar la visibilidad global de etiquetas,
-     y UI del botón. No se han modificado otras funcionalidades salvo los puntos necesarios.
+/* script.js - Versión con:
+   - Botón global Mostrar/Ocultar etiquetas.
+   - Plano estático en Rider respetando visibilidad de etiquetas.
+   - Área de trabajo segura (#stage-work-area) más pequeña dentro del canvas.
+   - Clamp de movimiento para que los elementos NO puedan salir del área segura.
 */
+
 document.addEventListener('DOMContentLoaded', () => {
   // ---------- Referencias globales ----------
   const projectInitScreen = document.getElementById('project-init-screen');
@@ -33,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Plano y listas
   const stageCanvas = document.getElementById('stage-canvas');
   const canvasRulers = document.getElementById('canvas-rulers');
+  const workArea = document.getElementById('stage-work-area');   // NUEVA ÁREA SEGURA
   const inputListBody = document.getElementById('input-list-body');
   const sendsListBody = document.getElementById('sends-list-body');
 
@@ -48,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const gridToggle = document.getElementById('grid-toggle');
   const showLabelCheckbox = document.getElementById('show-label-checkbox');
 
-  // Labels toggle button (nuevo)
+  // Botón global de etiquetas
   const labelsToggleBtn = document.getElementById('labels-toggle');
 
   // Duplicate / copy / paste
@@ -87,27 +86,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const customIcons = new Map();
   let customIconCounter = 1;
 
-  // Map que liga nombre de Sub-Snake -> color (ej: "A-2" => "#ff0000")
+  // Map que liga nombre de Sub-Snake -> color
   const subSnakeColorMap = new Map();
 
-  // Column definitions arrays (persisted in project)
-  // Each column: { id, label, type: 'text'|'color'|'checkbox'|'select'|'number', options: [..], exportable: true/false }
+  // Column definitions
   let inputExtraColumns = [];
   let sendExtraColumns = [];
 
-  // Labels global visibility state:
-  // true = labels visible (for those elements that individually have showLabel)
-  // false = labels hidden (even if they individually have showLabel)
+  // Visibilidad global de etiquetas
   let labelsVisible = true;
 
-  // Global drag state (single source)
+  // Global drag state (canvas)
   const dragState = {
     active: false,
     multi: false,
     element: null,
     startMouse: { x: 0, y: 0 },
     offset: { x: 0, y: 0 },
-    initialPositions: null // Map(element -> {left, top})
+    initialPositions: null
   };
 
   // ---------- Theme initialization ----------
@@ -115,7 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
   body.classList.add('init-screen');
   if (projectInitScreen) projectInitScreen.classList.add('active');
 
-  // grid default
   if (stageCanvas) stageCanvas.classList.add('show-grid');
   if (gridToggle) {
     gridToggle.addEventListener('change', () => {
@@ -124,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Initialize labels toggle button UI
+  // Labels toggle UI
   function updateLabelsToggleButtonUI() {
     if (!labelsToggleBtn) return;
     if (labelsVisible) {
@@ -142,8 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (labelsToggleBtn) {
     labelsToggleBtn.addEventListener('click', () => {
       labelsVisible = !labelsVisible;
-      // Re-render labels on canvas for all elements according to their individual flag and this global state
-      document.querySelectorAll('.stage-element').forEach(el => updateElementLabelDisplay(el));
+      (workArea || stageCanvas).querySelectorAll('.stage-element')
+        .forEach(el => updateElementLabelDisplay(el));
       updateLabelsToggleButtonUI();
       scheduleRiderPreview();
     });
@@ -212,8 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('theme', 'night');
       themeToggleButton.innerHTML = '<i class="fas fa-sun"></i> Día/Noche';
     }
-    // apply theme to elements that did NOT have user-set colors/backgrounds
-    document.querySelectorAll('.stage-element').forEach(el => {
+    (workArea || stageCanvas).querySelectorAll('.stage-element').forEach(el => {
       if (!el.dataset.colorUserSet) el.style.color = '';
       if (!el.dataset.colorUserSetBackground) el.style.backgroundColor = '';
     });
@@ -229,7 +223,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------- SUGERENCIAS / DATA ----------------
-  // Lista ampliada de micros por categoría. Cada entrada: { name, phantom }
   const SUGERENCIAS_MIC = {
     'Voz Principal': [
       { name: 'Shure SM58', phantom: false },
@@ -321,10 +314,22 @@ document.addEventListener('DOMContentLoaded', () => {
     ]
   };
 
-  const SUGERENCIAS_STAND = { 'Voz Principal': 'Alto', 'Coro/Backing': 'Alto', 'Bombo (Kick)': 'Pequeño', 'Caja (Snare)': 'Pequeño', 'Toms': 'Pinza', 'Overhead': 'Alto', 'Bajo (DI)': 'Ninguno', 'Guitarra Eléctrica': 'Pequeño', 'Guitarra Acústica': 'Alto', 'Teclado': 'Ninguno', 'Percusión': 'Pequeño', 'Otro': 'Alto' };
+  const SUGERENCIAS_STAND = {
+    'Voz Principal': 'Alto',
+    'Coro/Backing': 'Alto',
+    'Bombo (Kick)': 'Pequeño',
+    'Caja (Snare)': 'Pequeño',
+    'Toms': 'Pinza',
+    'Overhead': 'Alto',
+    'Bajo (DI)': 'Ninguno',
+    'Guitarra Eléctrica': 'Pequeño',
+    'Guitarra Acústica': 'Alto',
+    'Teclado': 'Ninguno',
+    'Percusión': 'Pequeño',
+    'Otro': 'Alto'
+  };
   const STAND_OPTIONS = ['Alto', 'Pequeño', 'Base Redonda', 'Recto', 'Pinza', 'Ninguno'];
 
-  // Ensure stand datalist exists (like mic-datalist)
   function ensureStandDatalist() {
     let standDatalist = document.getElementById('stand-datalist');
     if (!standDatalist) {
@@ -336,28 +341,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   ensureStandDatalist();
 
-  // ---------------- Helpers for table headers/columns ----------------
+  // ---------------- Helpers for columns ----------------
   function makeColumnId(prefix) {
     return `${prefix}-${Date.now()}-${Math.floor(Math.random()*1000)}`;
   }
 
-  function findExtraColumnByLabel(label, forTable = 'input') {
-    const arr = forTable === 'input' ? inputExtraColumns : sendExtraColumns;
-    return arr.find(c => c.label === label);
-  }
-
-  function findExtraColumnById(id, forTable = 'input') {
-    const arr = forTable === 'input' ? inputExtraColumns : sendExtraColumns;
-    return arr.find(c => c.id === id);
-  }
-
   function addExtraColumnDefinition(def, forTable = 'input', skipDOM = false) {
-    // def: { label, type, options, exportable }
     if (!def || !def.label) return false;
     const targetArr = forTable === 'input' ? inputExtraColumns : sendExtraColumns;
-    // avoid duplicates by label across both tables and default headers
     const labelTrim = def.label.trim();
     if (!labelTrim) return false;
+
     const collisionInInputs = inputExtraColumns.some(c => c.label.toLowerCase() === labelTrim.toLowerCase());
     const collisionInSends = sendExtraColumns.some(c => c.label.toLowerCase() === labelTrim.toLowerCase());
     const defaultCollisionInput = INPUT_DEFAULT_HEADERS.some(h => h.toLowerCase() === labelTrim.toLowerCase());
@@ -369,7 +363,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
 
-    const col = { id: makeColumnId(forTable), label: labelTrim, type: def.type || 'text', options: def.options || [], exportable: def.exportable !== false };
+    const col = {
+      id: makeColumnId(forTable),
+      label: labelTrim,
+      type: def.type || 'text',
+      options: def.options || [],
+      exportable: def.exportable !== false
+    };
     targetArr.push(col);
     if (!skipDOM) addColumnToTableDOM(col, forTable);
     attachColumnDragHandlersToAllTables();
@@ -385,13 +385,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const tbody = table.querySelector('tbody');
     if (!thead || !tbody) return;
     const headerRow = thead.querySelector('tr');
-    // Insert TH before last TH (Eliminar)
+
     const th = document.createElement('th');
     th.dataset.dynamic = '1';
     th.dataset.colId = colDef.id;
     th.dataset.label = colDef.label;
 
-    // build inner: label span + small controls
     const labelSpan = document.createElement('span');
     labelSpan.className = 'col-label';
     labelSpan.textContent = colDef.label;
@@ -421,7 +420,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const last = headers[headers.length - 1];
     headerRow.insertBefore(th, last);
 
-    // For each existing row, insert a TD with appropriate control before last TD
     Array.from(tbody.querySelectorAll('tr')).forEach(row => {
       const td = createCellForColumn(colDef);
       td.setAttribute('data-label', colDef.label);
@@ -430,7 +428,6 @@ document.addEventListener('DOMContentLoaded', () => {
       row.insertBefore(td, lastCell);
     });
 
-    // Attach rename/delete handlers
     btnRename.addEventListener('click', () => {
       const oldLabel = colDef.label;
       const newName = prompt('Nuevo nombre de la columna:', oldLabel);
@@ -438,7 +435,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const newTrim = newName.trim();
       if (!newTrim) { alert('El nombre no puede estar vacío.'); return; }
 
-      // check duplication across headers and extra columns
       const duplicate = (() => {
         const cmp = newTrim.toLowerCase();
         if (INPUT_DEFAULT_HEADERS.some(h => h.toLowerCase() === cmp)) return true;
@@ -455,19 +451,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (duplicate) { alert('Ya existe otra columna con este nombre. Elige otro.'); return; }
 
-      // Update definition
       colDef.label = newTrim;
-      // update th data-label and labelSpan
       th.dataset.label = newTrim;
       labelSpan.textContent = newTrim;
 
-      // update all rows td[data-label=oldLabel] => set to new label and update inner controls if needed
       const tableRows = tbody.querySelectorAll('tr');
       tableRows.forEach(r => {
         const td = Array.from(r.children).find(c => (c.getAttribute('data-label') || '').toString() === oldLabel);
-        if (td) {
-          td.setAttribute('data-label', newTrim);
-        }
+        if (td) td.setAttribute('data-label', newTrim);
       });
 
       scheduleRiderPreview();
@@ -477,14 +468,11 @@ document.addEventListener('DOMContentLoaded', () => {
     btnDelete.addEventListener('click', () => {
       const confirmed = confirm(`¿Eliminar la columna "${colDef.label}"? Esta acción quitará la columna de todas las filas.`);
       if (!confirmed) return;
-      // remove def from array
       if (forTable === 'input') inputExtraColumns = inputExtraColumns.filter(c => c.id !== colDef.id);
       else sendExtraColumns = sendExtraColumns.filter(c => c.id !== colDef.id);
 
-      // remove TH
       th.remove();
 
-      // remove all TDs in tbody that had data-label === colDef.label
       Array.from(tbody.querySelectorAll('tr')).forEach(row => {
         const tds = Array.from(row.children);
         tds.forEach(td => {
@@ -492,7 +480,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
 
-      // After deletion, ensure numbers/update
       if (forTable === 'input') updateChannelNumbers(); else updateSendNumbers();
       scheduleRiderPreview();
       attachColumnDragHandlersToAllTables();
@@ -547,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
         inp.addEventListener('input', () => scheduleRiderPreview());
         break;
       }
-      default: { // text
+      default: {
         const inner = document.createElement('div');
         inner.contentEditable = 'true';
         inner.style.minHeight = '18px';
@@ -559,17 +546,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return td;
   }
 
-  // ---------------- Input / Sends list management ----------------
+  // ---------------- Helpers input/sends ----------------
   function getMicOptions() {
     const suggestedMics = new Set();
     Object.values(SUGERENCIAS_MIC).flat().forEach(mic => suggestedMics.add(mic.name));
     return Array.from(suggestedMics).map(m => `<option value="${m}">`).join('');
   }
-  function getStandOptions(currentStand) {
-    return STAND_OPTIONS.map(s => `<option value="${s}" ${s === currentStand ? 'selected' : ''}>${s}</option>`).join('');
-  }
 
-  // Helper: returns header labels order for a given table element or selector
+  const INPUT_DEFAULT_HEADERS = ['Ch', 'Nombre de canal', 'Mic/DI', 'Phantom', 'Pie', 'Sub-Snake', 'Notas', 'Eliminar'];
+  const SEND_DEFAULT_HEADERS = ['Send', 'Nombre', 'Tipo', 'Mix', 'EQ/FX', 'Notas', 'Eliminar'];
+
   function getTableHeaderOrder(tableOrSelector, fallback) {
     const defaultOrder = Array.isArray(fallback) ? fallback : [];
     let table;
@@ -578,12 +564,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!table) return defaultOrder;
     const ths = table.querySelectorAll('thead th');
     if (!ths || ths.length === 0) return defaultOrder;
-    // Prefer data-label if present (helps when TH contains buttons)
     return Array.from(ths).map(th => ((th.dataset && th.dataset.label) ? th.dataset.label : th.textContent).trim());
   }
-
-  const INPUT_DEFAULT_HEADERS = ['Ch', 'Nombre de canal', 'Mic/DI', 'Phantom', 'Pie', 'Sub-Snake', 'Notas', 'Eliminar'];
-  const SEND_DEFAULT_HEADERS = ['Send', 'Nombre', 'Tipo', 'Mix', 'EQ/FX', 'Notas', 'Eliminar'];
 
   // Ensure mic datalist exists
   let micDatalist = document.getElementById('mic-datalist');
@@ -598,7 +580,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateSubsnakeColorForName(name, color) {
     if (!name) return;
     subSnakeColorMap.set(name, color);
-    // apply to all rows that have this name
     if (!inputListBody) return;
     inputListBody.querySelectorAll('tr').forEach(row => {
       const nameIn = row.querySelector('.subsnake-name');
@@ -613,21 +594,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function getSubsnakeColor(name) {
-    if (!name) return '#ffffff';
-    return subSnakeColorMap.get(name) || '#ffffff';
-  }
-
   function createChannelRow(channelNumber, channelData = null) {
     const row = document.createElement('tr');
     row.draggable = true;
     const isLoad = channelData !== null;
-    // NAME: default empty for new rows, keep loaded name when loading project
     const defaultName = isLoad ? channelData.name : '';
-    const categoryForSuggestions = Object.keys(SUGERENCIAS_MIC).find(k => (defaultName || (`Canal ${channelNumber}`)).toLowerCase().includes(k.toLowerCase())) || 'Bombo';
+    const categoryForSuggestions =
+      Object.keys(SUGERENCIAS_STAND).find(k =>
+        (defaultName || (`Canal ${channelNumber}`)).toLowerCase().includes(k.toLowerCase())
+      ) || 'Bombo';
     const placeholderText = `Ej: ${categoryForSuggestions}`;
 
-    // Cambios solicitados: por defecto mic vacío y stand sin selección
     const defaultMicName = isLoad ? channelData.mic : '';
     const defaultPhantomChecked = isLoad ? !!channelData.phantom : false;
     const defaultStand = isLoad ? channelData.stand : '';
@@ -635,7 +612,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const defaultSubSnakeColor = isLoad ? channelData.subSnakeColor : '#ffffff';
     const defaultNotes = isLoad ? channelData.notes : '';
 
-    // ensure mic datalist exists
     let micDatalist = document.getElementById('mic-datalist');
     if (!micDatalist) {
       micDatalist = document.createElement('datalist');
@@ -643,10 +619,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.appendChild(micDatalist);
     }
     micDatalist.innerHTML = getMicOptions();
-    // ensure stand datalist
     ensureStandDatalist();
 
-    // Build cells according to current header order
     const headerOrder = getTableHeaderOrder('#input-list .data-table', INPUT_DEFAULT_HEADERS);
 
     headerOrder.forEach(label => {
@@ -706,7 +680,6 @@ document.addEventListener('DOMContentLoaded', () => {
           td.appendChild(nameIn);
           td.appendChild(colorIn);
 
-          // Set mapping if loading or default provided
           if (defaultSubSnakeName) {
             if (subSnakeColorMap.has(defaultSubSnakeName)) {
               const mapped = subSnakeColorMap.get(defaultSubSnakeName);
@@ -717,7 +690,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
 
-          // Event: when name changes, if there's a mapped color for new name, apply it to this row
           nameIn.addEventListener('blur', () => {
             const newName = (nameIn.value || '').trim();
             nameIn.dataset._lastName = newName;
@@ -736,14 +708,11 @@ document.addEventListener('DOMContentLoaded', () => {
             scheduleRiderPreview();
           });
 
-          // Event: when color changes, update map and propagate to all rows with same name
           colorIn.addEventListener('input', () => {
             const nameVal = (nameIn.value || '').trim() || defaultSubSnakeName || '';
             const colorVal = colorIn.value || '#ffffff';
             if (nameVal) updateSubsnakeColorForName(nameVal, colorVal);
-            else {
-              td.style.backgroundColor = colorVal;
-            }
+            else td.style.backgroundColor = colorVal;
             scheduleRiderPreview();
           });
 
@@ -760,34 +729,33 @@ document.addEventListener('DOMContentLoaded', () => {
           td.appendChild(btn);
           break;
         }
-        default:
-          // maybe it's an extra dynamic column
+        default: {
           const dynamic = inputExtraColumns.find(c => c.label === label);
           if (dynamic) {
             let defaultVal = null;
-            if (isLoad && channelData && channelData.extra && channelData.extra[label] !== undefined) defaultVal = channelData.extra[label];
+            if (isLoad && channelData && channelData.extra && channelData.extra[label] !== undefined) {
+              defaultVal = channelData.extra[label];
+            }
             const dynamicCell = createCellForColumn(dynamic, defaultVal);
             dynamicCell.setAttribute('data-label', label);
             row.appendChild(dynamicCell);
-            return; // already appended
+            return;
           } else {
             td.textContent = '';
           }
+        }
       }
       row.appendChild(td);
     });
 
-    // behavior
     const numCell = row.querySelector('td[data-label="Ch"]');
-    const nameCell = row.querySelector('td[data-label="Nombre de canal"]'); // this is the TD element (contenteditable)
+    const nameCell = row.querySelector('td[data-label="Nombre de canal"]');
     const micInput = row.querySelector('.mic-input');
     const standInput = row.querySelector('.stand-input');
     const phantomCheckbox = row.querySelector('.phantom-checkbox');
 
-    // Store last good value for revert if invalid
     if (numCell) numCell.dataset._lastValue = channelNumber;
 
-    // When user edits CH number, move row to that index
     if (numCell) {
       numCell.addEventListener('blur', () => {
         const text = numCell.textContent.trim();
@@ -797,40 +765,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const max = rows.length;
 
         if (isNaN(newIndexRaw)) {
-          // revert to previous
           numCell.textContent = numCell.dataset._lastValue;
           return;
         }
 
-        // clamp minimum
         let target = Math.max(1, newIndexRaw);
-
-        // If target greater than rows length, move to end
         if (target > max) target = max;
 
         const currentIndex = rows.indexOf(row);
         const targetIndex = target - 1;
 
         if (currentIndex === -1) {
-          // row not in table (unlikely) - append
           parent.appendChild(row);
         } else if (currentIndex !== targetIndex) {
-          // Save interactive controls state
           const controls = Array.from(row.querySelectorAll('input, select, textarea, [contenteditable="true"]'));
           const savedState = controls.map(c => ({
             tag: c.tagName.toLowerCase(),
             type: c.type || '',
-            value: (c.getAttribute && c.getAttribute('contenteditable') === 'true') ? c.textContent : (c.value !== undefined ? c.value : ''),
+            value: (c.getAttribute && c.getAttribute('contenteditable') === 'true')
+              ? c.textContent
+              : (c.value !== undefined ? c.value : ''),
             checked: c.checked === true,
             selectedIndex: c.selectedIndex != null ? c.selectedIndex : null
           }));
 
-          // Move the row
           parent.removeChild(row);
           if (targetIndex >= parent.children.length) parent.appendChild(row);
           else parent.insertBefore(row, parent.children[targetIndex]);
 
-          // Restore controls state
           const controlsNow = Array.from(row.querySelectorAll('input, select, textarea, [contenteditable="true"]'));
           controlsNow.forEach((c, i) => {
             const s = savedState[i];
@@ -838,8 +800,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (c.type === 'checkbox' || c.type === 'radio') {
               c.checked = !!s.checked;
             } else if (c.tagName.toLowerCase() === 'select') {
-              if (s.selectedIndex != null && s.selectedIndex >= 0 && s.selectedIndex < c.options.length) c.selectedIndex = s.selectedIndex;
-              else if (s.value != null) {
+              if (s.selectedIndex != null && s.selectedIndex >= 0 && s.selectedIndex < c.options.length) {
+                c.selectedIndex = s.selectedIndex;
+              } else if (s.value != null) {
                 try { c.value = s.value; } catch (err) {}
               }
             } else if (c.getAttribute && c.getAttribute('contenteditable') === 'true') {
@@ -847,7 +810,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
               c.value = s.value;
             }
-            // trigger change if needed
             const ev = new Event('change', { bubbles: true });
             c.dispatchEvent(ev);
           });
@@ -855,15 +817,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateChannelNumbers();
         scheduleRiderPreview();
-        // Store last value as the actual current number
         numCell.dataset._lastValue = target;
-        // Ensure visible value matches actual
         const newRows = Array.from(inputListBody.children);
         const idxNow = newRows.indexOf(row);
         if (idxNow >= 0) numCell.textContent = idxNow + 1;
       });
 
-      // Enter key confirms edit
       numCell.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
@@ -872,7 +831,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // IMPORTANT: do NOT auto-fill mic or stand when user edits the channel name.
     if (nameCell) {
       nameCell.addEventListener('blur', () => {
         updateRowDisplay(row);
@@ -930,17 +888,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const nameCell = row.children[1];
     const currentName = nameCell.textContent.trim();
-    const category = Object.keys(SUGERENCIAS_STAND).find(key => currentName.toLowerCase().includes(key.toLowerCase())) || 'Otro';
+    const category = Object.keys(SUGERENCIAS_STAND).find(key =>
+      currentName.toLowerCase().includes(key.toLowerCase())
+    ) || 'Otro';
     const suggestedStand = SUGERENCIAS_STAND[category];
 
-    // If mic explicitly indicates DI, set stand to 'Ninguno'
     if (micValue.includes('di') && micValue.length > 2) {
       if (standInput.value !== 'Ninguno') {
         standInput.value = 'Ninguno';
       }
     } else {
       if (!standInput.value || standInput.value.trim() === '') {
-        // keep empty to show placeholder
+        // se deja vacío para placeholder
       }
     }
   }
@@ -948,9 +907,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function initializeInputList(count) {
     inputListBody.innerHTML = '';
     for (let i = 1; i <= count; i++) inputListBody.appendChild(createChannelRow(i));
-    // If there are extra column definitions, ensure they are in the header and rows
     inputExtraColumns.forEach(col => {
-      // if header already has it skip
       const table = document.querySelector('#input-list .data-table');
       if (table && !Array.from(table.querySelectorAll('thead th')).some(th => (th.dataset && th.dataset.colId) === col.id)) {
         addColumnToTableDOM(col, 'input');
@@ -958,17 +915,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     updateChannelNumbers();
     scheduleRiderPreview();
-    attachColumnDragHandlersToAllTables(); // ensure headers draggable for columns
+    attachColumnDragHandlersToAllTables();
   }
 
   function loadInputList(channelsData) {
     inputListBody.innerHTML = '';
     if (channelsData && channelsData.length) {
-      channelsData.forEach((ch, idx) => inputListBody.appendChild(createChannelRow(idx + 1, ch)));
+      channelsData.forEach((ch, idx) =>
+        inputListBody.appendChild(createChannelRow(idx + 1, ch))
+      );
     }
-    // Ensure dynamic columns are represented in DOM (they should be if restored earlier)
     inputExtraColumns.forEach(col => {
-      // ensure headers exist (avoid duplicates)
       const table = document.querySelector('#input-list .data-table');
       if (table && !Array.from(table.querySelectorAll('thead th')).some(th => (th.dataset && th.dataset.colId) === col.id)) {
         addColumnToTableDOM(col, 'input');
@@ -990,7 +947,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const defaultEQFX = isLoad ? sendData.eqfx : '';
     const defaultNotes = isLoad ? sendData.notes : '';
 
-    // Build row according to header order
     const headerOrder = getTableHeaderOrder('#sends-list .data-table', SEND_DEFAULT_HEADERS);
 
     headerOrder.forEach(label => {
@@ -1005,7 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
           td.contentEditable = 'true';
           td.textContent = defaultName;
           break;
-        case 'Tipo':
+        case 'Tipo': {
           const select = document.createElement('select');
           select.className = 'send-type-select';
           SEND_TYPE_OPTIONS.forEach(t => {
@@ -1017,6 +973,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           td.appendChild(select);
           break;
+        }
         case 'Mix':
           td.contentEditable = 'true';
           td.textContent = defaultMix;
@@ -1029,18 +986,20 @@ document.addEventListener('DOMContentLoaded', () => {
           td.contentEditable = 'true';
           td.textContent = defaultNotes;
           break;
-        case 'Eliminar':
+        case 'Eliminar': {
           const btn = document.createElement('button');
           btn.className = 'btn delete-btn';
           btn.innerHTML = '<i class="fas fa-times"></i>';
           td.appendChild(btn);
           break;
-        default:
-          // dynamic send columns
+        }
+        default: {
           const dynamic = sendExtraColumns.find(c => c.label === label);
           if (dynamic) {
             let defaultVal = null;
-            if (isLoad && sendData && sendData.extra && sendData.extra[label] !== undefined) defaultVal = sendData.extra[label];
+            if (isLoad && sendData && sendData.extra && sendData.extra[label] !== undefined) {
+              defaultVal = sendData.extra[label];
+            }
             const dynCell = createCellForColumn(dynamic, defaultVal);
             dynCell.setAttribute('data-label', label);
             row.appendChild(dynCell);
@@ -1048,6 +1007,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             td.textContent = '';
           }
+        }
       }
       row.appendChild(td);
     });
@@ -1074,7 +1034,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function loadSendsList(sendsData) {
     sendsListBody.innerHTML = '';
     if (sendsData && sendsData.length) {
-      sendsData.forEach((s, idx) => sendsListBody.appendChild(createSendRow(idx + 1, s)));
+      sendsData.forEach((s, idx) =>
+        sendsListBody.appendChild(createSendRow(idx + 1, s))
+      );
     }
     sendExtraColumns.forEach(col => {
       const table = document.querySelector('#sends-list .data-table');
@@ -1114,7 +1076,13 @@ document.addEventListener('DOMContentLoaded', () => {
         numCell.dataset._lastValue = index + 1;
       }
       const deleteBtn = row.querySelector('.delete-btn');
-      if (deleteBtn) deleteBtn.onclick = () => { row.remove(); updateChannelNumbers(); scheduleRiderPreview(); };
+      if (deleteBtn) {
+        deleteBtn.onclick = () => {
+          row.remove();
+          updateChannelNumbers();
+          scheduleRiderPreview();
+        };
+      }
     });
     projectConfig.numInputChannels = inputListBody.querySelectorAll('tr').length;
     updateProjectInfoDisplay(projectConfig);
@@ -1126,19 +1094,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const numCell = row.querySelector('td[data-label="Send"]');
       if (numCell) numCell.textContent = index + 1;
       const deleteBtn = row.querySelector('.delete-btn');
-      if (deleteBtn) deleteBtn.onclick = () => { row.remove(); updateSendNumbers(); scheduleRiderPreview(); };
+      if (deleteBtn) {
+        deleteBtn.onclick = () => {
+          row.remove();
+          updateSendNumbers();
+          scheduleRiderPreview();
+        };
+      }
     });
     projectConfig.numSends = sendsListBody.querySelectorAll('tr').length;
     updateProjectInfoDisplay(projectConfig);
   }
 
-  // ---------------- Drag & Drop para filas ----------------
+  // ---------------- Drag & Drop filas ----------------
   function setupDragAndDrop(row, isSendList = false) {
     row.addEventListener('dragstart', (e) => {
       draggedRow = row;
       row.classList.add('dragging');
 
-      // --- Preserve interactive control state to avoid losing values when reordering ---
       try {
         const controls = Array.from(row.querySelectorAll('input, select, textarea, [contenteditable="true"]'));
         const state = controls.map(c => {
@@ -1152,18 +1125,26 @@ document.addEventListener('DOMContentLoaded', () => {
           };
         });
         row.dataset._rowState = JSON.stringify(state);
-      } catch (err) {
-        // silently ignore state save errors
-      }
+      } catch (err) {}
 
       try { e.dataTransfer.setData('text/plain', 'drag-row'); } catch (err) {}
       const phantomCheckbox = row.querySelector('.phantom-checkbox');
       if (phantomCheckbox) row.dataset._phantomChecked = phantomCheckbox.checked ? '1' : '0';
       e.dataTransfer.effectAllowed = 'move';
     });
-    row.addEventListener('dragenter', (e) => { e.preventDefault(); if (draggedRow !== row) row.classList.add('drag-over'); });
-    row.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+
+    row.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      if (draggedRow !== row) row.classList.add('drag-over');
+    });
+
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+
     row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+
     row.addEventListener('drop', () => {
       row.classList.remove('drag-over');
       if (draggedRow && draggedRow !== row) {
@@ -1173,7 +1154,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (draggingIndex > targetIndex) parent.insertBefore(draggedRow, row);
         else parent.insertBefore(draggedRow, row.nextSibling);
 
-        // restore saved interactive state (inputs/selects/checkboxes/contenteditable) to the moved row
         try {
           if (draggedRow.dataset._rowState) {
             const saved = JSON.parse(draggedRow.dataset._rowState);
@@ -1184,8 +1164,9 @@ document.addEventListener('DOMContentLoaded', () => {
               if (c.type === 'checkbox' || c.type === 'radio') {
                 c.checked = !!s.checked;
               } else if (c.tagName.toLowerCase() === 'select') {
-                if (s.selectedIndex != null && s.selectedIndex >= 0 && s.selectedIndex < c.options.length) c.selectedIndex = s.selectedIndex;
-                else if (s.value != null) {
+                if (s.selectedIndex != null && s.selectedIndex >= 0 && s.selectedIndex < c.options.length) {
+                  c.selectedIndex = s.selectedIndex;
+                } else if (s.value != null) {
                   try { c.value = s.value; } catch (err) {}
                 }
               } else if (c.getAttribute && c.getAttribute('contenteditable') === 'true') {
@@ -1198,7 +1179,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
           }
         } catch (err) {
-          // ignore restore errors
         } finally {
           const cb = draggedRow.querySelector('.phantom-checkbox');
           if (cb && draggedRow.dataset._phantomChecked !== undefined) {
@@ -1210,18 +1190,21 @@ document.addEventListener('DOMContentLoaded', () => {
         scheduleRiderPreview();
       }
     });
+
     row.addEventListener('dragend', () => {
       if (draggedRow) {
         draggedRow.classList.remove('dragging');
-        // cleanup saved temp state
-        try { delete draggedRow.dataset._rowState; delete draggedRow.dataset._phantomChecked; } catch (e) {}
+        try {
+          delete draggedRow.dataset._rowState;
+          delete draggedRow.dataset._phantomChecked;
+        } catch (e) {}
       }
       document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
       draggedRow = null;
     });
   }
 
-  // ---------------- Column drag-and-drop (robusta) ----------------
+  // ---------------- Column drag-and-drop ----------------
   window._barstageDraggedCol = null;
 
   function attachColumnDragHandlersToTable(table) {
@@ -1231,17 +1214,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const headerRow = thead.querySelector('tr');
     if (!headerRow) return;
 
-    // assign dataset.colIndex for current order and set draggable property
     const headers = Array.from(headerRow.children);
     headers.forEach((th, i) => {
       th.dataset.colIndex = String(i);
-      // no permitir arrastrar primera ni última columna
       th.draggable = (i !== 0 && i !== (headers.length - 1));
     });
 
     headers.forEach((th) => {
       if (th._colHandlerAttached) return;
-      // dragstart
+
       th.addEventListener('dragstart', (e) => {
         const idx = parseInt(th.dataset.colIndex, 10);
         if (isNaN(idx) || idx === 0) { e.preventDefault(); return; }
@@ -1251,7 +1232,6 @@ document.addEventListener('DOMContentLoaded', () => {
         e.dataTransfer.effectAllowed = 'move';
       });
 
-      // dragover
       th.addEventListener('dragover', (e) => {
         e.preventDefault();
         const dragged = window._barstageDraggedCol;
@@ -1266,7 +1246,6 @@ document.addEventListener('DOMContentLoaded', () => {
         th.classList.remove('col-drag-over');
       });
 
-      // drop: perform column reorder
       th.addEventListener('drop', (e) => {
         e.preventDefault();
         th.classList.remove('col-drag-over');
@@ -1276,7 +1255,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const targetIndex = parseInt(th.dataset.colIndex, 10);
         if (isNaN(srcIndex) || isNaN(targetIndex)) return;
         const headerCount = headerRow.children.length;
-        // No permitir mover la primera (0) ni la última (headerCount-1)
         if (srcIndex < 1 || targetIndex < 1 || srcIndex === headerCount - 1 || targetIndex === headerCount - 1) return;
         if (srcIndex === targetIndex) return;
         reorderTableColumns(table, srcIndex, targetIndex);
@@ -1330,7 +1308,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const headerRow = table.querySelector('thead tr');
     if (headerRow) {
-      Array.from(headerRow.children).forEach((th, i) => { th.dataset.colIndex = String(i); });
+      Array.from(headerRow.children).forEach((th, i) => {
+        th.dataset.colIndex = String(i);
+      });
     }
 
     attachColumnDragHandlersToTable(table);
@@ -1365,15 +1345,18 @@ document.addEventListener('DOMContentLoaded', () => {
   attachPaletteDragHandlers();
 
   if (stageCanvas) {
-    stageCanvas.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    stageCanvas.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
 
     stageCanvas.addEventListener('drop', (e) => {
       e.preventDefault();
       const type = e.dataTransfer.getData('text/plain');
       if (!type) return;
-      const canvasRect = stageCanvas.getBoundingClientRect();
-      const x = e.clientX - canvasRect.left;
-      const y = e.clientY - canvasRect.top;
+      const areaRect = workArea.getBoundingClientRect();
+      const x = e.clientX - areaRect.left;
+      const y = e.clientY - areaRect.top;
 
       const draggedElement = document.createElement('div');
       draggedElement.className = 'stage-element';
@@ -1383,7 +1366,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const iconHtml = sourceIcon?.querySelector('i')?.outerHTML || '';
       const iconText = sourceIcon?.textContent.trim() || '';
 
-      // Special: platform 2x1 (tarima) - fixed size, has background
       if (type === 'platform-2x1') {
         draggedElement.style.width = '200px';
         draggedElement.style.height = '100px';
@@ -1414,8 +1396,12 @@ document.addEventListener('DOMContentLoaded', () => {
         draggedElement.dataset.content = '';
         draggedElement.dataset.showLabel = '0';
         if (type === 'circle-shape') draggedElement.classList.add('shape-circle');
-        else if (type === 'line-shape') { draggedElement.style.width = '150px'; draggedElement.style.height = '5px'; draggedElement.classList.add('shape-square'); draggedElement.style.borderRadius = '0'; }
-        else draggedElement.classList.add('shape-square');
+        else if (type === 'line-shape') {
+          draggedElement.style.width = '150px';
+          draggedElement.style.height = '5px';
+          draggedElement.classList.add('shape-square');
+          draggedElement.style.borderRadius = '0';
+        } else draggedElement.classList.add('shape-square');
 
         draggedElement.dataset.colorUserSetBackground = '1';
       } else if (type === 'text') {
@@ -1448,11 +1434,11 @@ document.addEventListener('DOMContentLoaded', () => {
       draggedElement.dataset.scale = '1.0';
       draggedElement.dataset.elementId = `element-${iconCounter++}`;
 
-      stageCanvas.appendChild(draggedElement);
+      (workArea || stageCanvas).appendChild(draggedElement);
       setupElementInteractions(draggedElement);
       selectSingleElement(draggedElement, { clearOthers: true });
 
-      const placeholder = stageCanvas.querySelector('.canvas-placeholder');
+      const placeholder = workArea.querySelector('.canvas-placeholder');
       if (placeholder) placeholder.remove();
 
       scheduleRiderPreview();
@@ -1472,11 +1458,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateElementLabelDisplay(element) {
     if (!element) return;
-    // Remove existing label (if any)
     const existing = element.querySelector('.element-label');
     if (existing) existing.remove();
 
-    // If the element has its individual flag enabled AND global labels are visible, show label
     const showIndividually = (element.dataset.showLabel === '1' || element.dataset.showLabel === 'true');
     const showNow = showIndividually && labelsVisible;
 
@@ -1495,8 +1479,6 @@ document.addEventListener('DOMContentLoaded', () => {
         span.style.pointerEvents = 'none';
         element.appendChild(span);
       }
-    } else {
-      // ensure nothing remains visible; no label appended
     }
   }
 
@@ -1518,7 +1500,6 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedElements.add(el);
     selectedElement = el;
 
-    // mark states
     selectedElements.forEach(e => {
       if (e !== el) {
         e.classList.remove('selected');
@@ -1564,6 +1545,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // --------- Helper: limitar posición al área segura ---------
+  function clampToCanvas(el, left, top) {
+    const areaRect = workArea.getBoundingClientRect();
+    const elW = Math.max(1, el.offsetWidth || 50);
+    const elH = Math.max(1, el.offsetHeight || 50);
+
+    const minLeft = 0;
+    const minTop  = 0;
+    const maxLeft = areaRect.width  - elW;
+    const maxTop  = areaRect.height - elH;
+
+    return {
+      left: Math.min(Math.max(left, minLeft), maxLeft),
+      top:  Math.min(Math.max(top,  minTop),  maxTop)
+    };
+  }
+
   // ---------------- Global drag handlers ----------------
   function onDocMouseMove(e) {
     if (!dragState.active) return;
@@ -1571,31 +1569,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const anyRotating = document.querySelector('.stage-element.rotating');
     if (anyResizing || anyRotating) return;
 
-    const canvasRect = stageCanvas.getBoundingClientRect();
-    if (dragState.multi) {
+    if (dragState.multi && dragState.initialPositions) {
       const dx = e.clientX - dragState.startMouse.x;
       const dy = e.clientY - dragState.startMouse.y;
       dragState.initialPositions.forEach((pos, el) => {
-        const elW = Math.max(1, el.offsetWidth || 50);
-        const elH = Math.max(1, el.offsetHeight || 50);
         let newLeft = pos.left + dx;
-        let newTop = pos.top + dy;
-        newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - elW));
-        newTop = Math.max(0, Math.min(newTop, canvasRect.height - elH));
-        el.style.left = `${newLeft}px`;
-        el.style.top = `${newTop}px`;
+        let newTop  = pos.top  + dy;
+        const clamped = clampToCanvas(el, newLeft, newTop);
+        el.style.left = clamped.left + 'px';
+        el.style.top  = clamped.top  + 'px';
       });
     } else {
       const el = dragState.element;
       if (!el) return;
-      const elW = Math.max(1, el.offsetWidth || 50);
-      const elH = Math.max(1, el.offsetHeight || 50);
-      let newLeft = e.clientX - canvasRect.left - dragState.offset.x;
-      let newTop = e.clientY - canvasRect.top - dragState.offset.y;
-      newLeft = Math.max(0, Math.min(newLeft, canvasRect.width - elW));
-      newTop = Math.max(0, Math.min(newTop, canvasRect.height - elH));
-      el.style.left = `${newLeft}px`;
-      el.style.top = `${newTop}px`;
+      const areaRect = workArea.getBoundingClientRect();
+      let newLeft = e.clientX - areaRect.left - dragState.offset.x;
+      let newTop  = e.clientY - areaRect.top  - dragState.offset.y;
+      const clamped = clampToCanvas(el, newLeft, newTop);
+      el.style.left = clamped.left + 'px';
+      el.style.top  = clamped.top  + 'px';
     }
     scheduleRiderPreview();
   }
@@ -1651,7 +1643,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedElements.forEach(el => {
           initialPositions.set(el, {
             left: parseFloat(el.style.left) || 0,
-            top: parseFloat(el.style.top) || 0
+            top:  parseFloat(el.style.top)  || 0
           });
         });
         dragState.initialPositions = initialPositions;
@@ -1694,7 +1686,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const elementText = getElementTextContent(element);
         elementNameInput.value = elementText;
         selectedElementTitle.textContent = elementText || 'Elemento Seleccionado';
-        if (showLabelCheckbox) showLabelCheckbox.checked = element.dataset.showLabel === '1' || element.dataset.showLabel === 'true';
+        if (showLabelCheckbox) {
+          showLabelCheckbox.checked =
+            element.dataset.showLabel === '1' || element.dataset.showLabel === 'true';
+        }
       }
       scheduleRiderPreview();
     });
@@ -1707,12 +1702,14 @@ document.addEventListener('DOMContentLoaded', () => {
     element.querySelectorAll('.resizer, .rotator').forEach(h => h.remove());
 
     if (element.dataset.platform !== '2x1') {
-      const resizerBR = document.createElement('div'); resizerBR.className = 'resizer bottom-right';
+      const resizerBR = document.createElement('div');
+      resizerBR.className = 'resizer bottom-right';
       element.appendChild(resizerBR);
       setupResizing(element, resizerBR);
     }
 
-    const rotator = document.createElement('div'); rotator.className = 'rotator';
+    const rotator = document.createElement('div');
+    rotator.className = 'rotator';
     element.appendChild(rotator);
     setupRotation(element, rotator);
 
@@ -1729,19 +1726,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const isShape = element.dataset.type?.endsWith('-shape');
 
     const onDown = (e) => {
-      e.stopPropagation(); e.preventDefault();
+      e.stopPropagation();
+      e.preventDefault();
       element.classList.add('resizing');
       element.classList.add('dragging');
-      startX = e.clientX; startY = e.clientY;
+      startX = e.clientX;
+      startY = e.clientY;
       if (!isShape) {
-        startW = element.offsetWidth; startH = element.offsetHeight;
+        startW = element.offsetWidth;
+        startH = element.offsetHeight;
         startScale = parseFloat(element.dataset.scale) || 1.0;
       } else {
         startW = parseFloat(element.style.width) || element.offsetWidth;
         startH = parseFloat(element.style.height) || element.offsetHeight;
       }
       const onMove = (ev) => {
-        const dx = ev.clientX - startX, dy = ev.clientY - startY;
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
         if (isShape) {
           element.style.width = `${Math.max(20, startW + dx)}px`;
           element.style.height = `${Math.max(20, startH + dy)}px`;
@@ -1771,20 +1772,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setupRotation(element, handle) {
     const onDown = (e) => {
-      e.stopPropagation(); e.preventDefault();
+      e.stopPropagation();
+      e.preventDefault();
       element.classList.add('rotating');
       element.classList.add('dragging');
 
       const onMove = (ev) => {
         const rect = element.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2, centerY = rect.top + rect.height / 2;
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
         const angleRad = Math.atan2(ev.clientY - centerY, ev.clientX - centerX);
         let angleDeg = angleRad * (180 / Math.PI) + 90;
         if (angleDeg < 0) angleDeg += 360;
         element.dataset.rotation = angleDeg;
         const currentScale = element.dataset.scale || '1.0';
         let transformValue = `rotate(${angleDeg}deg)`;
-        if (element.dataset.type?.endsWith('-shape') && element.dataset.type !== 'line-shape') transformValue += ` scale(${currentScale})`;
+        if (element.dataset.type?.endsWith('-shape') && element.dataset.type !== 'line-shape') {
+          transformValue += ` scale(${currentScale})`;
+        }
         element.style.transform = transformValue;
         scheduleRiderPreview();
       };
@@ -1812,12 +1817,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentBackgroundColor = element.style.backgroundColor || 'transparent';
     const isShape = element.dataset.type?.endsWith('-shape');
 
-    const colorToDisplay = (element.dataset.platform === '2x1') ? (currentBackgroundColor === 'transparent' ? '#cfcfcf' : currentBackgroundColor) : (isShape ? (currentBackgroundColor === 'transparent' ? '#007bff' : currentBackgroundColor) : (element.style.color || '#007bff'));
+    const colorToDisplay =
+      (element.dataset.platform === '2x1')
+        ? (currentBackgroundColor === 'transparent' ? '#cfcfcf' : currentBackgroundColor)
+        : (isShape
+            ? (currentBackgroundColor === 'transparent' ? '#007bff' : currentBackgroundColor)
+            : (element.style.color || '#007bff'));
 
     const elementText = getElementTextContent(element);
-    if (elementNameInput) elementNameInput.value = elementText;
-    if (selectedElementTitle) selectedElementTitle.textContent = elementText || 'Elemento Seleccionado';
-    if (elementNameInput) elementNameInput.oninput = () => { setElementTextContent(element, elementNameInput.value); if (selectedElementTitle) selectedElementTitle.textContent = elementNameInput.value || 'Elemento Seleccionado'; scheduleRiderPreview(); };
+    if (elementNameInput) {
+      elementNameInput.value = elementText;
+      elementNameInput.oninput = () => {
+        setElementTextContent(element, elementNameInput.value);
+        if (selectedElementTitle) {
+          selectedElementTitle.textContent = elementNameInput.value || 'Elemento Seleccionado';
+        }
+        scheduleRiderPreview();
+      };
+    }
+    if (selectedElementTitle) {
+      selectedElementTitle.textContent = elementText || 'Elemento Seleccionado';
+    }
 
     if (colorPicker) {
       colorPicker.value = rgbToHex(colorToDisplay);
@@ -1837,12 +1857,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (shapeSelector) {
-      shapeSelector.value = element.classList.contains('shape-circle') ? 'circle' : (element.dataset.type === 'line-shape' ? 'line' : (element.style.backgroundColor && element.dataset.type?.endsWith('-shape') ? 'square' : 'square'));
+      shapeSelector.value =
+        element.classList.contains('shape-circle')
+          ? 'circle'
+          : (element.dataset.type === 'line-shape'
+              ? 'line'
+              : (element.style.backgroundColor && element.dataset.type?.endsWith('-shape')
+                  ? 'square'
+                  : 'square'));
       shapeSelector.onchange = () => {
         element.classList.remove('shape-square', 'shape-circle');
         if (element.dataset.type?.endsWith('-shape') || element.style.backgroundColor !== 'transparent') {
-          if (shapeSelector.value === 'line') element.style.borderRadius = '0';
-          else { element.classList.add(`shape-${shapeSelector.value}`); element.style.borderRadius = ''; }
+          if (shapeSelector.value === 'line') {
+            element.style.borderRadius = '0';
+          } else {
+            element.classList.add(`shape-${shapeSelector.value}`);
+            element.style.borderRadius = '';
+          }
         }
         scheduleRiderPreview();
       };
@@ -1851,26 +1882,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (zIndexSelector) {
       const currentZIndex = element.style.zIndex || 10;
       zIndexSelector.value = currentZIndex;
-      zIndexSelector.oninput = () => { element.style.zIndex = zIndexSelector.value; scheduleRiderPreview(); };
+      zIndexSelector.oninput = () => {
+        element.style.zIndex = zIndexSelector.value;
+        scheduleRiderPreview();
+      };
     }
 
-    if (document.getElementById('scale-selector')) {
+    const scaleSelector = document.getElementById('scale-selector');
+    if (scaleSelector) {
       const currentScale = element.dataset.scale || 1.0;
-      document.getElementById('scale-selector').value = currentScale;
-      document.getElementById('scale-selector').oninput = (e) => {
+      scaleSelector.value = currentScale;
+      scaleSelector.oninput = (e) => {
         const newScale = e.target.value;
-        if (isShape) { if (element.dataset.type !== 'line-shape') element.style.transform = `rotate(${element.dataset.rotation || 0}deg) scale(${newScale})`; }
-        else { element.style.fontSize = `${newScale}em`; element.style.transform = `rotate(${element.dataset.rotation || 0}deg)`; }
+        if (isShape) {
+          if (element.dataset.type !== 'line-shape') {
+            element.style.transform = `rotate(${element.dataset.rotation || 0}deg) scale(${newScale})`;
+          }
+        } else {
+          element.style.fontSize = `${newScale}em`;
+          element.style.transform = `rotate(${element.dataset.rotation || 0}deg)`;
+        }
         element.dataset.scale = newScale;
         scheduleRiderPreview();
       };
     }
 
     if (showLabelCheckbox) {
-      showLabelCheckbox.checked = element.dataset.showLabel === '1' || element.dataset.showLabel === 'true';
+      showLabelCheckbox.checked =
+        element.dataset.showLabel === '1' || element.dataset.showLabel === 'true';
       showLabelCheckbox.onchange = () => {
         element.dataset.showLabel = showLabelCheckbox.checked ? '1' : '0';
-        // Re-render label for this element (global visibility taken into account)
         updateElementLabelDisplay(element);
         scheduleRiderPreview();
       };
@@ -1884,7 +1925,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (element) {
           element.remove();
           clearAllSelection();
-          if (stageCanvas && stageCanvas.children.length === 0) stageCanvas.innerHTML = '<div id="canvas-rulers" aria-hidden="true"></div><p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
+          if ((workArea || stageCanvas).querySelectorAll('.stage-element').length === 0) {
+            workArea.innerHTML =
+              '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
+          }
           renderRulers();
         }
         scheduleRiderPreview();
@@ -1893,19 +1937,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------- Copy/Paste/Duplicate ----------------
-  if (duplicateBtn) duplicateBtn.addEventListener('click', () => { if (selectedElement) duplicateElement(selectedElement); });
+  if (duplicateBtn) duplicateBtn.addEventListener('click', () => {
+    if (selectedElement) duplicateElement(selectedElement);
+  });
   if (copyBtn) copyBtn.addEventListener('click', () => {
     if (selectedElements.size > 1) {
-      clipboardElementData = { multi: true, items: Array.from(selectedElements).map(el => serializeElementForClipboard(el)) };
+      clipboardElementData = {
+        multi: true,
+        items: Array.from(selectedElements).map(el => serializeElementForClipboard(el))
+      };
     } else if (selectedElement) {
-      clipboardElementData = { multi: false, item: serializeElementForClipboard(selectedElement) };
+      clipboardElementData = {
+        multi: false,
+        item: serializeElementForClipboard(selectedElement)
+      };
     }
   });
   if (pasteBtn) pasteBtn.addEventListener('click', () => {
     if (!clipboardElementData) return;
     if (clipboardElementData.multi) {
       let offset = 0;
-      clipboardElementData.items.forEach(item => { pasteSerializedElement(item, offset, offset); offset += 15; });
+      clipboardElementData.items.forEach(item => {
+        pasteSerializedElement(item, offset, offset);
+        offset += 15;
+      });
     } else {
       pasteSerializedElement(clipboardElementData.item, 20, 20);
     }
@@ -1913,22 +1968,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-      if (selectedElements.size > 1) clipboardElementData = { multi: true, items: Array.from(selectedElements).map(el => serializeElementForClipboard(el)) };
-      else if (selectedElement) clipboardElementData = { multi: false, item: serializeElementForClipboard(selectedElement) };
+      if (selectedElements.size > 1) {
+        clipboardElementData = {
+          multi: true,
+          items: Array.from(selectedElements).map(el => serializeElementForClipboard(el))
+        };
+      } else if (selectedElement) {
+        clipboardElementData = {
+          multi: false,
+          item: serializeElementForClipboard(selectedElement)
+        };
+      }
       e.preventDefault();
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
       if (!clipboardElementData) return;
       if (clipboardElementData.multi) {
         let offset = 0;
-        clipboardElementData.items.forEach(item => { pasteSerializedElement(item, offset, offset); offset += 15; });
+        clipboardElementData.items.forEach(item => {
+          pasteSerializedElement(item, offset, offset);
+          offset += 15;
+        });
       } else {
         pasteSerializedElement(clipboardElementData.item, 30, 30);
       }
       e.preventDefault();
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
-      if (selectedElement) { duplicateElement(selectedElement); e.preventDefault(); }
+      if (selectedElement) {
+        duplicateElement(selectedElement);
+        e.preventDefault();
+      }
     }
   });
 
@@ -1943,7 +2013,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const computedWidth = styleWidth || `${Math.round(rect.width)}px`;
     const computedHeight = styleHeight || `${Math.round(rect.height)}px`;
 
-    const borderShorthand = (cs.border && cs.border !== '0px none rgb(0, 0, 0)') ? cs.border : '';
+    const borderShorthand =
+      (cs.border && cs.border !== '0px none rgb(0, 0, 0)') ? cs.border : '';
     const borderWidth = cs.borderTopWidth || '';
     const borderStyle = cs.borderTopStyle || '';
     const borderColor = cs.borderTopColor || '';
@@ -1970,14 +2041,17 @@ document.addEventListener('DOMContentLoaded', () => {
         top: parseFloat(el.style.top) || 0
       },
       dataset: { ...el.dataset },
-      classes: Array.from(el.classList).filter(c => c !== 'selected' && c !== 'dragging' && c !== 'multi-selected')
+      classes: Array.from(el.classList).filter(c =>
+        c !== 'selected' && c !== 'dragging' && c !== 'multi-selected'
+      )
     };
   }
 
   function pasteSerializedElement(data, dx = 10, dy = 10) {
     if (!data) return;
     const el = document.createElement('div');
-    el.className = 'stage-element ' + ((data.classes && data.classes.length) ? data.classes.join(' ') : '');
+    el.className = 'stage-element ' +
+      ((data.classes && data.classes.length) ? data.classes.join(' ') : '');
     el.innerHTML = data.html || '';
     const comp = data.computed || {};
     if (comp.width) el.style.width = comp.width;
@@ -1997,8 +2071,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const bc = comp.borderColor || '#000';
       el.style.border = `${bw} ${bs} ${bc}`;
     }
-    el.style.left = (data.style.left + dx) + 'px';
-    el.style.top = (data.style.top + dy) + 'px';
+
+    let newLeft = (data.style.left + dx);
+    let newTop  = (data.style.top  + dy);
+    const clamped = clampToCanvas(el, newLeft, newTop);
+    el.style.left = clamped.left + 'px';
+    el.style.top  = clamped.top  + 'px';
+
     if (data.dataset) Object.keys(data.dataset).forEach(k => el.dataset[k] = data.dataset[k]);
     el.dataset.elementId = `element-${iconCounter++}`;
 
@@ -2019,7 +2098,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    stageCanvas.appendChild(el);
+    (workArea || stageCanvas).appendChild(el);
     setupElementInteractions(el);
     selectSingleElement(el, { clearOthers: true });
     scheduleRiderPreview();
@@ -2046,37 +2125,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------------- Deselección global / atajos ----------------
   document.addEventListener('click', (e) => {
-    if (e.target.closest('#element-config-panel') || e.target.closest('.resizer') || e.target.closest('.rotator')) return;
+    if (e.target.closest('#element-config-panel') ||
+        e.target.closest('.resizer') ||
+        e.target.closest('.rotator')) return;
     if (e.target.closest('.stage-element')) return;
     if (!e.target.closest('.stage-element')) clearAllSelection();
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      if (selectedElement && selectedElement.getAttribute('contenteditable') === 'true') selectedElement.blur();
+      if (selectedElement && selectedElement.getAttribute('contenteditable') === 'true') {
+        selectedElement.blur();
+      }
       clearAllSelection();
     }
 
     const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
     if (arrowKeys.includes(e.key)) {
       const activeElement = document.activeElement;
-      const isEditingText = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable === true);
+      const isEditingText =
+        activeElement &&
+        (activeElement.tagName === 'INPUT' ||
+         activeElement.tagName === 'TEXTAREA' ||
+         activeElement.isContentEditable === true);
+
       if (!isEditingText && selectedElements.size > 0) {
         const step = e.shiftKey ? 10 : 1;
-        const canvasRect = stageCanvas.getBoundingClientRect();
         selectedElements.forEach(el => {
-          const elW = Math.max(1, el.offsetWidth || 50);
-          const elH = Math.max(1, el.offsetHeight || 50);
           let left = parseFloat(el.style.left) || 0;
-          let top = parseFloat(el.style.top) || 0;
-          if (e.key === 'ArrowLeft') left -= step;
+          let top  = parseFloat(el.style.top)  || 0;
+          if (e.key === 'ArrowLeft')  left -= step;
           if (e.key === 'ArrowRight') left += step;
-          if (e.key === 'ArrowUp') top -= step;
-          if (e.key === 'ArrowDown') top += step;
-          left = Math.max(0, Math.min(left, canvasRect.width - elW));
-          top = Math.max(0, Math.min(top, canvasRect.height - elH));
-          el.style.left = `${left}px`;
-          el.style.top = `${top}px`;
+          if (e.key === 'ArrowUp')    top  -= step;
+          if (e.key === 'ArrowDown')  top  += step;
+          const clamped = clampToCanvas(el, left, top);
+          el.style.left = clamped.left + 'px';
+          el.style.top  = clamped.top  + 'px';
         });
         scheduleRiderPreview();
         e.preventDefault();
@@ -2087,12 +2171,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const isDeleteOrBackspace = (e.key === 'Delete' || e.key === 'Backspace');
     if (isDeleteOrBackspace) {
       const activeElement = document.activeElement;
-      const isEditingText = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable === true);
+      const isEditingText =
+        activeElement &&
+        (activeElement.tagName === 'INPUT' ||
+         activeElement.tagName === 'TEXTAREA' ||
+         activeElement.isContentEditable === true);
       if (isEditingText) return;
       if (selectedElements.size > 0) {
         selectedElements.forEach(el => el.remove());
         clearAllSelection();
-        if (stageCanvas.children.length === 0) stageCanvas.innerHTML = '<div id="canvas-rulers" aria-hidden="true"></div><p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
+        if ((workArea || stageCanvas).querySelectorAll('.stage-element').length === 0) {
+          workArea.innerHTML =
+            '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
+        }
         renderRulers();
       }
     }
@@ -2101,10 +2192,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------- Save / Load / Snapshot ----------------
   function collectStageElements() {
     const elements = [];
-    stageCanvas.querySelectorAll('.stage-element').forEach(element => {
-      let widthToSave = element.style.width === 'fit-content' ? element.offsetWidth : parseFloat(element.style.width || element.offsetWidth);
-      let heightToSave = element.style.height === 'fit-content' ? element.offsetHeight : parseFloat(element.style.height || element.offsetHeight);
-      const computedBorder = element.style.border || window.getComputedStyle(element).border || '';
+    (workArea || stageCanvas).querySelectorAll('.stage-element').forEach(element => {
+      let widthToSave =
+        element.style.width === 'fit-content'
+          ? element.offsetWidth
+          : parseFloat(element.style.width || element.offsetWidth);
+      let heightToSave =
+        element.style.height === 'fit-content'
+          ? element.offsetHeight
+          : parseFloat(element.style.height || element.offsetHeight);
+      const computedBorder =
+        element.style.border || window.getComputedStyle(element).border || '';
       elements.push({
         type: element.dataset.type,
         x: parseFloat(element.style.left) || 0,
@@ -2118,7 +2216,10 @@ document.addEventListener('DOMContentLoaded', () => {
         rotation: element.dataset.rotation,
         scale: element.dataset.scale,
         content: element.dataset.content || '',
-        classes: Array.from(element.classList).filter(c => c !== 'stage-element' && c !== 'selected' && c !== 'dragging' && c !== 'multi-selected'),
+        classes: Array.from(element.classList).filter(c =>
+          c !== 'stage-element' && c !== 'selected' &&
+          c !== 'dragging' && c !== 'multi-selected'
+        ),
         dataset: { ...element.dataset },
         isCircle: element.classList.contains('shape-circle'),
         wasResized: element.dataset.wasResized === 'true'
@@ -2142,12 +2243,12 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (label === 'Pie') obj.stand = td.querySelector('input')?.value || '';
         else if (label === 'Sub-Snake') {
           obj.subSnake = td.querySelector('.subsnake-name')?.value || '';
-          obj.subSnakeColor = td.style.backgroundColor || (td.querySelector('.subsnake-color-picker')?.value || '#ffffff');
-        }
-        else if (label === 'Notas') obj.notes = td.textContent.trim();
+          obj.subSnakeColor =
+            td.style.backgroundColor ||
+            (td.querySelector('.subsnake-color-picker')?.value || '#ffffff');
+        } else if (label === 'Notas') obj.notes = td.textContent.trim();
         else if (label === 'Eliminar') { /* skip */ }
         else {
-          // dynamic column: detect input/select/checkbox/contenteditable
           const inp = td.querySelector('input[type="color"], input[type="number"], input[type="text"], input:not([type]), select, textarea');
           const cb = td.querySelector('input[type="checkbox"]');
           const sel = td.querySelector('select');
@@ -2204,7 +2305,10 @@ document.addEventListener('DOMContentLoaded', () => {
       stageElements: collectStageElements(),
       inputList: collectInputList(),
       sendsList: collectSendsList(),
-      rider: { title: riderTitleInput?.value || '', notes: riderEditor?.innerHTML || '' },
+      rider: {
+        title: riderTitleInput?.value || '',
+        notes: riderEditor?.innerHTML || ''
+      },
       customIcons: Array.from(customIcons.entries()),
       inputExtraColumns: inputExtraColumns,
       sendExtraColumns: sendExtraColumns,
@@ -2213,21 +2317,33 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function saveProjectAsBarstage() {
-    if (!projectConfig.projectName) { alert('Por favor, nombra el proyecto antes de guardar.'); return; }
+    if (!projectConfig.projectName) {
+      alert('Por favor, nombra el proyecto antes de guardar.');
+      return;
+    }
     projectConfig.numInputChannels = inputListBody.querySelectorAll('tr').length;
     projectConfig.numSends = sendsListBody.querySelectorAll('tr').length;
     const projectData = getSnapshot();
     const dataStr = JSON.stringify(projectData, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `${projectConfig.projectName.replace(/\s/g, '_')}.barstage`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectConfig.projectName.replace(/\s/g, '_')}.barstage`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     alert(`Proyecto "${projectConfig.projectName}" guardado!`);
   }
 
   if (saveProjectBtn) saveProjectBtn.addEventListener('click', saveProjectAsBarstage);
   if (loadProjectBtn) {
     loadProjectBtn.addEventListener('click', () => {
-      const fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.accept = '.barstage, .json'; fileInput.click();
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.barstage, .json';
+      fileInput.click();
       fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -2237,7 +2353,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const loadedData = JSON.parse(e.target.result);
             loadProject(loadedData);
             alert(`Proyecto "${loadedData.config.projectName}" cargado exitosamente.`);
-          } catch (error) { console.error("Error al parsear JSON:", error); alert('Error al leer el archivo. Asegúrate de que sea un archivo de proyecto (.barstage o .json) válido.'); }
+          } catch (error) {
+            console.error("Error al parsear JSON:", error);
+            alert('Error al leer el archivo. Asegúrate de que sea un archivo de proyecto (.barstage o .json) válido.');
+          }
           event.target.value = '';
         };
         reader.readAsText(file);
@@ -2245,7 +2364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------------- Add Column UI (simple prompt-based) ----------------
+  // ---------------- Add Column UI ----------------
   function askNewColumn(forTable = 'input') {
     const name = prompt('Nombre de la nueva columna (ej: Instrumento):');
     if (!name) return;
@@ -2286,9 +2405,17 @@ document.addEventListener('DOMContentLoaded', () => {
       box.style.minWidth = '320px';
       box.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)';
 
-      const title = document.createElement('div'); title.textContent = 'Selecciona formato de exportación'; title.style.fontWeight = '700'; title.style.marginBottom = '10px'; box.appendChild(title);
+      const title = document.createElement('div');
+      title.textContent = 'Selecciona formato de exportación';
+      title.style.fontWeight = '700';
+      title.style.marginBottom = '10px';
+      box.appendChild(title);
 
-      const desc = document.createElement('div'); desc.textContent = 'Elige cómo quieres exportar el Rider / proyecto:'; desc.style.fontSize = '0.9em'; desc.style.marginBottom = '12px'; box.appendChild(desc);
+      const desc = document.createElement('div');
+      desc.textContent = 'Elige cómo quieres exportar el Rider / proyecto:';
+      desc.style.fontSize = '0.9em';
+      desc.style.marginBottom = '12px';
+      box.appendChild(desc);
 
       const buttons = [
         { label: 'Proyecto (.barstage)', value: 'barstage' },
@@ -2345,19 +2472,20 @@ document.addEventListener('DOMContentLoaded', () => {
     resetApplicationState();
     projectConfig = data.config || {};
 
-    // Restore extra columns definitions first, then create DOM headers
-    inputExtraColumns = Array.isArray(data.inputExtraColumns) ? data.inputExtraColumns.slice() : [];
-    sendExtraColumns = Array.isArray(data.sendExtraColumns) ? data.sendExtraColumns.slice() : [];
+    inputExtraColumns = Array.isArray(data.inputExtraColumns)
+      ? data.inputExtraColumns.slice()
+      : [];
+    sendExtraColumns = Array.isArray(data.sendExtraColumns)
+      ? data.sendExtraColumns.slice()
+      : [];
 
-    // Rebuild headers to ensure createChannelRow/createSendRow follow the header order
-    function rebuildTableHeaders(selector, defaultHeaders, extraCols) {
+    function rebuildTableHeaders(selector, defaultHeaders) {
       const table = document.querySelector(selector);
       if (!table) return;
       const thead = table.querySelector('thead');
       if (!thead) return;
       thead.innerHTML = '';
       const tr = document.createElement('tr');
-      // insert default headers
       defaultHeaders.forEach(h => {
         const th = document.createElement('th');
         th.textContent = h;
@@ -2366,27 +2494,26 @@ document.addEventListener('DOMContentLoaded', () => {
       thead.appendChild(tr);
     }
 
-    // Rebuild basic tables (we will rely on createChannelRow/createSendRow to inject dynamic columns into rows)
-    // But we must ensure header contains default headers first
-    rebuildTableHeaders('#input-list .data-table', INPUT_DEFAULT_HEADERS, inputExtraColumns);
-    rebuildTableHeaders('#sends-list .data-table', SEND_DEFAULT_HEADERS, sendExtraColumns);
+    rebuildTableHeaders('#input-list .data-table', INPUT_DEFAULT_HEADERS);
+    rebuildTableHeaders('#sends-list .data-table', SEND_DEFAULT_HEADERS);
 
-    // Load lists
     loadInputList(data.inputList || []);
     loadSendsList(data.sendsList || []);
 
-    // Restore custom icons if present
     if (data.customIcons && Array.isArray(data.customIcons)) {
-      data.customIcons.forEach(([key, url]) => { customIcons.set(key, url); });
+      data.customIcons.forEach(([key, url]) => {
+        customIcons.set(key, url);
+      });
       refreshCustomIconsInPalette();
     }
 
     loadStageElements(data.stageElements || []);
+
     if (data.rider) {
       if (riderTitleInput) riderTitleInput.value = data.rider.title || '';
       if (riderEditor) riderEditor.innerHTML = data.rider.notes || '';
     }
-    // Restore subsnake color map from input list
+
     (data.inputList || []).forEach(ch => {
       if (ch && ch.subSnake) {
         const nm = ch.subSnake;
@@ -2407,9 +2534,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function loadStageElements(elementsData) {
     if (!stageCanvas) return;
-    stageCanvas.innerHTML = '';
+    workArea.innerHTML =
+      '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
     if (!canvasRulers.parentElement) stageCanvas.appendChild(canvasRulers);
+    const placeholder = workArea.querySelector('.canvas-placeholder');
+
     if (elementsData && elementsData.length > 0) {
+      if (placeholder) placeholder.remove();
       elementsData.forEach(elementData => {
         const element = document.createElement('div');
         element.className = `stage-element ${elementData.classes ? elementData.classes.join(' ') : ''}`;
@@ -2419,20 +2550,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (elementData.width) element.style.width = `${elementData.width}px`;
         if (elementData.height) element.style.height = `${elementData.height}px`;
-        if (!element.dataset.type?.endsWith('-shape')) { element.style.width = elementData.width ? `${elementData.width}px` : 'fit-content'; element.style.height = elementData.height ? `${elementData.height}px` : 'fit-content'; }
+
+        if (!element.dataset.type?.endsWith('-shape')) {
+          element.style.width = elementData.width ? `${elementData.width}px` : 'fit-content';
+          element.style.height = elementData.height ? `${elementData.height}px` : 'fit-content';
+        }
 
         element.style.color = elementData.color || 'var(--color-text)';
         element.style.backgroundColor = elementData.backgroundColor || '';
         if (elementData.border) element.style.border = elementData.border;
         element.style.zIndex = elementData.zIndex || '';
         const sizeValue = elementData.scale || '1.0';
-        if (element.dataset.type === 'line-shape') element.style.transform = `rotate(${elementData.rotation || 0}deg)`;
-        else if (element.dataset.type?.endsWith('-shape')) element.style.transform = `rotate(${elementData.rotation || 0}deg) scale(${sizeValue})`;
-        else { element.style.fontSize = `${sizeValue}em`; element.style.transform = `rotate(${elementData.rotation || 0}deg)`; }
+
+        if (element.dataset.type === 'line-shape') {
+          element.style.transform = `rotate(${elementData.rotation || 0}deg)`;
+        } else if (element.dataset.type?.endsWith('-shape')) {
+          element.style.transform = `rotate(${elementData.rotation || 0}deg) scale(${sizeValue})`;
+        } else {
+          element.style.fontSize = `${sizeValue}em`;
+          element.style.transform = `rotate(${elementData.rotation || 0}deg)`;
+        }
+
         element.dataset.rotation = elementData.rotation;
         element.dataset.scale = sizeValue;
         element.dataset.wasResized = elementData.wasResized ? 'true' : 'false';
-        if (elementData.dataset) Object.keys(elementData.dataset).forEach(k => element.dataset[k] = elementData.dataset[k]);
+        if (elementData.dataset) {
+          Object.keys(elementData.dataset).forEach(k => element.dataset[k] = elementData.dataset[k]);
+        }
 
         if (elementData.backgroundColor) element.dataset.colorUserSetBackground = '1';
         if (elementData.border) element.dataset.borderUserSet = '1';
@@ -2447,21 +2591,25 @@ document.addEventListener('DOMContentLoaded', () => {
             element.appendChild(img);
           }
         } else if (element.dataset.type !== 'text' && !element.dataset.type?.endsWith('-shape')) {
-          const iconClass = document.querySelector(`.stage-icon[data-type="${elementData.type}"] i`)?.className;
-          if (iconClass && !element.dataset.type?.endsWith('-shape')) element.innerHTML = `<i class="${iconClass}"></i>`;
+          const iconClass =
+            document.querySelector(`.stage-icon[data-type="${elementData.type}"] i`)?.className;
+          if (iconClass && !element.dataset.type?.endsWith('-shape')) {
+            element.innerHTML = `<i class="${iconClass}"></i>`;
+          }
           element.setAttribute('contenteditable', 'false');
         } else {
           element.textContent = elementData.content || '';
           element.setAttribute('contenteditable', 'false');
         }
-        if (element.dataset.showLabel === '1' || element.dataset.showLabel === 'true') updateElementLabelDisplay(element);
+
+        if (element.dataset.showLabel === '1' || element.dataset.showLabel === 'true') {
+          updateElementLabelDisplay(element);
+        }
 
         element.dataset.elementId = `element-${iconCounter++}`;
-        stageCanvas.appendChild(element);
+        (workArea || stageCanvas).appendChild(element);
         setupElementInteractions(element);
       });
-    } else {
-      stageCanvas.innerHTML = '<div id="canvas-rulers" aria-hidden="true"></div><p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
     }
     renderRulers();
   }
@@ -2523,14 +2671,8 @@ document.addEventListener('DOMContentLoaded', () => {
           if (input) {
             if (input.type === 'color') {
               const box = document.createElement('span');
-              box.style.display = 'inline-block';
-              box.style.width = '14px';
-              box.style.height = '14px';
-              box.style.verticalAlign = 'middle';
-              box.style.marginRight = '6px';
+              box.className = 'color-box';
               box.style.background = input.value;
-              box.style.border = '1px solid #ccc';
-              box.style.borderRadius = '3px';
               newTd.appendChild(box);
               newTd.appendChild(document.createTextNode(input.value));
             } else {
@@ -2561,7 +2703,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function buildStaticStageElement(hideGrid = true) {
-    const original = document.getElementById('stage-canvas');
+    const original = document.getElementById('stage-work-area');
     if (!original) return document.createElement('div');
 
     const parentRect = original.getBoundingClientRect();
@@ -2588,8 +2730,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const el = document.createElement('div');
       el.className = 'stage-element';
-      if (origEl.querySelector('img')) el.innerHTML = origEl.innerHTML;
-      else el.innerHTML = origEl.innerHTML;
+      el.innerHTML = origEl.innerHTML;
 
       el.style.position = 'absolute';
       el.style.left = `${left}px`;
@@ -2611,9 +2752,13 @@ document.addEventListener('DOMContentLoaded', () => {
       el.style.border = comp.border;
 
       el.querySelectorAll('.resizer, .rotator').forEach(n => n.remove());
-      const icon = el.querySelector('i'); if (icon) icon.style.display = 'inline-block';
+      const icon = el.querySelector('i');
+      if (icon) icon.style.display = 'inline-block';
 
-      if (origEl.dataset && (origEl.dataset.showLabel === '1' || origEl.dataset.showLabel === 'true') && origEl.dataset.content) {
+      const showIndividually =
+        origEl.dataset &&
+        (origEl.dataset.showLabel === '1' || origEl.dataset.showLabel === 'true');
+      if (labelsVisible && showIndividually && origEl.dataset && origEl.dataset.content) {
         const lbl = document.createElement('div');
         lbl.className = 'element-label';
         lbl.textContent = origEl.dataset.content || '';
@@ -2622,6 +2767,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lbl.style.left = '50%';
         lbl.style.transform = 'translateX(-50%)';
         lbl.style.fontSize = '0.85em';
+        lbl.style.whiteSpace = 'nowrap';
         el.appendChild(lbl);
       }
 
@@ -2638,7 +2784,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const titleSection = document.createElement('div');
     titleSection.className = 'rider-section';
     const hTitle = document.createElement('h1');
-    hTitle.textContent = riderTitleInput?.value || projectConfig.tourName || 'Título de la Gira';
+    hTitle.textContent =
+      riderTitleInput?.value || projectConfig.tourName || 'Título de la Gira';
     hTitle.style.marginBottom = '8px';
     titleSection.appendChild(hTitle);
     riderPreview.appendChild(titleSection);
@@ -2650,7 +2797,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const stageWrap = document.createElement('div');
     stageWrap.className = 'rider-section';
-    const hStage = document.createElement('h3'); hStage.textContent = 'Plano (Stage Plot)';
+    const hStage = document.createElement('h3');
+    hStage.textContent = 'Plano (Stage Plot)';
     stageWrap.appendChild(hStage);
     const staticStage = buildStaticStageElement(true);
     stageWrap.appendChild(staticStage);
@@ -2658,43 +2806,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const inputsWrap = document.createElement('div');
     inputsWrap.className = 'rider-section';
-    const hInputs = document.createElement('h3'); hInputs.textContent = 'Lista de Canales';
+    const hInputs = document.createElement('h3');
+    hInputs.textContent = 'Lista de Canales';
     inputsWrap.appendChild(hInputs);
-    const serializedInputs = serializeTableToElement(document.querySelector('#input-list .data-table'));
+    const serializedInputs = serializeTableToElement(
+      document.querySelector('#input-list .data-table')
+    );
     inputsWrap.appendChild(serializedInputs);
     riderPreview.appendChild(inputsWrap);
 
     const sendsWrap = document.createElement('div');
     sendsWrap.className = 'rider-section';
-    const hSends = document.createElement('h3'); hSends.textContent = 'Envíos';
+    const hSends = document.createElement('h3');
+    hSends.textContent = 'Envíos';
     sendsWrap.appendChild(hSends);
-    const serializedSends = serializeTableToElement(document.querySelector('#sends-list .data-table'));
+    const serializedSends = serializeTableToElement(
+      document.querySelector('#sends-list .data-table')
+    );
     sendsWrap.appendChild(serializedSends);
     riderPreview.appendChild(sendsWrap);
 
     const fohWrap = document.createElement('div');
     fohWrap.className = 'rider-section';
-    const hFoh = document.createElement('h3'); hFoh.textContent = 'FOH';
+    const hFoh = document.createElement('h3');
+    hFoh.textContent = 'FOH';
     const fohModel = document.getElementById('foh-console-model')?.value || '';
     const fohDetails = document.getElementById('foh-patch-details')?.value || '';
-    const pModel = document.createElement('div'); pModel.innerHTML = `<strong>Modelo de consola:</strong> ${escapeHtml(fohModel)}`;
-    const pre = document.createElement('pre'); pre.style.whiteSpace = 'pre-wrap'; pre.style.background = '#f6f6f6'; pre.style.padding = '10px'; pre.style.borderRadius = '4px';
+    const pModel = document.createElement('div');
+    pModel.innerHTML = `<strong>Modelo de consola:</strong> ${escapeHtml(fohModel)}`;
+    const pre = document.createElement('pre');
+    pre.style.whiteSpace = 'pre-wrap';
+    pre.style.background = '#f6f6f6';
+    pre.style.padding = '10px';
+    pre.style.borderRadius = '4px';
     pre.textContent = fohDetails;
-    fohWrap.appendChild(hFoh); fohWrap.appendChild(pModel); fohWrap.appendChild(pre);
+    fohWrap.appendChild(hFoh);
+    fohWrap.appendChild(pModel);
+    fohWrap.appendChild(pre);
     riderPreview.appendChild(fohWrap);
   }
 
   let previewTimeout = null;
   function scheduleRiderPreview(delay = 200) {
     if (previewTimeout) clearTimeout(previewTimeout);
-    previewTimeout = setTimeout(() => { renderRiderPreview(); previewTimeout = null; }, delay);
+    previewTimeout = setTimeout(() => {
+      renderRiderPreview();
+      previewTimeout = null;
+    }, delay);
   }
   scheduleRiderPreview(300);
 
-  const configObserver = new MutationObserver(() => { scheduleRiderPreview(250); });
-  if (inputListBody) configObserver.observe(inputListBody, { childList: true, subtree: true, attributes: true, characterData: true });
-  if (sendsListBody) configObserver.observe(sendsListBody, { childList: true, subtree: true, attributes: true, characterData: true });
-  if (stageCanvas) configObserver.observe(stageCanvas, { childList: true, subtree: true, attributes: true, characterData: true });
+  const configObserver = new MutationObserver(() => {
+    scheduleRiderPreview(250);
+  });
+  if (inputListBody) configObserver.observe(inputListBody, {
+    childList: true, subtree: true, attributes: true, characterData: true
+  });
+  if (sendsListBody) configObserver.observe(sendsListBody, {
+    childList: true, subtree: true, attributes: true, characterData: true
+  });
+  if (stageCanvas) configObserver.observe(stageCanvas, {
+    childList: true, subtree: true, attributes: true, characterData: true
+  });
 
   // ---------------- Export / Print helpers ----------------
   function exportRiderAsHTML() {
@@ -2723,7 +2896,13 @@ ${riderPreview.innerHTML}
 `;
       const blob = new Blob([html], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `${(projectConfig.projectName || 'rider').replace(/\s/g, '_')}.html`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(projectConfig.projectName || 'rider').replace(/\s/g, '_')}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       resolve();
     });
   }
@@ -2731,7 +2910,10 @@ ${riderPreview.innerHTML}
   function printRider() {
     renderRiderPreview();
     const printWindow = window.open('', '_blank');
-    if (!printWindow) { alert('La ventana de impresión fue bloqueada por el navegador. Permite ventanas emergentes para imprimir.'); return; }
+    if (!printWindow) {
+      alert('La ventana de impresión fue bloqueada por el navegador. Permite ventanas emergentes para imprimir.');
+      return;
+    }
     const title = escapeHtml(projectConfig.projectName || 'Rider');
     const content = `
 <!doctype html>
@@ -2771,9 +2953,15 @@ window.addEventListener('load', function() {
 
   function exportRiderAsDoc() {
     renderRiderPreview();
-    const inputsHTML = serializeTableToElement(document.querySelector('#input-list .data-table')).outerHTML;
-    const sendsHTML = serializeTableToElement(document.querySelector('#sends-list .data-table')).outerHTML;
-    const infoHTML = `<div><strong>Manager:</strong> ${escapeHtml('')}</div><div><strong>Técnico de Sonido:</strong> ${escapeHtml('')}</div>`;
+    const inputsHTML = serializeTableToElement(
+      document.querySelector('#input-list .data-table')
+    ).outerHTML;
+    const sendsHTML = serializeTableToElement(
+      document.querySelector('#sends-list .data-table')
+    ).outerHTML;
+    const infoHTML =
+      `<div><strong>Manager:</strong> ${escapeHtml('')}</div>` +
+      `<div><strong>Técnico de Sonido:</strong> ${escapeHtml('')}</div>`;
     const html = `
 <html><head><meta charset="utf-8"></head><body>
 <h2>Rider - ${escapeHtml(projectConfig.projectName || '')}</h2>
@@ -2786,14 +2974,26 @@ ${sendsHTML}
 `;
     const blob = new Blob([html], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `${(projectConfig.projectName || 'rider').replace(/\s/g, '_')}.doc`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(projectConfig.projectName || 'rider').replace(/\s/g, '_')}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   function exportRiderAsExcel() {
     renderRiderPreview();
-    const inputsHTML = serializeTableToElement(document.querySelector('#input-list .data-table')).outerHTML;
-    const sendsHTML = serializeTableToElement(document.querySelector('#sends-list .data-table')).outerHTML;
-    const infoHTML = `<div><strong>Manager:</strong> ${escapeHtml('')}</div><div><strong>Técnico de Sonido:</strong> ${escapeHtml('')}</div>`;
+    const inputsHTML = serializeTableToElement(
+      document.querySelector('#input-list .data-table')
+    ).outerHTML;
+    const sendsHTML = serializeTableToElement(
+      document.querySelector('#sends-list .data-table')
+    ).outerHTML;
+    const infoHTML =
+      `<div><strong>Manager:</strong> ${escapeHtml('')}</div>` +
+      `<div><strong>Técnico de Sonido:</strong> ${escapeHtml('')}</div>`;
     const html = `
 <html><head><meta charset="utf-8"></head><body>
 <h2>Rider - ${escapeHtml(projectConfig.projectName || '')}</h2>
@@ -2806,11 +3006,23 @@ ${sendsHTML}
 `;
     const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `${(projectConfig.projectName || 'rider').replace(/\s/g, '_')}.xls`; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(projectConfig.projectName || 'rider').replace(/\s/g, '_')}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   // ---------------- Helpers ----------------
-  function escapeHtml(s) { if (!s) return ''; return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function escapeHtml(s) {
+    if (!s) return '';
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
 
   function updateProjectInfoDisplay(config) {
     const hp = document.getElementById('header-project-name');
@@ -2827,7 +3039,10 @@ ${sendsHTML}
 
   function resetApplicationState() {
     projectConfig = {};
-    if (stageCanvas) stageCanvas.innerHTML = '<div id="canvas-rulers" aria-hidden="true"></div><p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
+    if (workArea) {
+      workArea.innerHTML =
+        '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
+    }
     iconCounter = 1;
     if (inputListBody) inputListBody.innerHTML = '';
     if (sendsListBody) sendsListBody.innerHTML = '';
@@ -2847,7 +3062,12 @@ ${sendsHTML}
 
   // ---------------- Rulers / Stage size ----------------
   function parseStageSize() {
-    const raw = (projectConfig.stageSize || document.getElementById('stage-size')?.value || document.getElementById('pref-stage-size')?.value || '').toString().toLowerCase();
+    const raw = (
+      projectConfig.stageSize ||
+      document.getElementById('stage-size')?.value ||
+      document.getElementById('pref-stage-size')?.value ||
+      ''
+    ).toString().toLowerCase();
     const numbers = raw.match(/([\d.]+)\s*m?/g);
     if (numbers && numbers.length >= 2) {
       const w = parseFloat(numbers[0]);
@@ -2862,12 +3082,10 @@ ${sendsHTML}
     canvasRulers.innerHTML = '';
     const rect = stageCanvas.getBoundingClientRect();
     const w = rect.width || 800;
-    const h = rect.height || 500;
 
-    const { w: stageMetersWidth, h: stageMetersHeight } = parseStageSize();
+    const { w: stageMetersWidth } = parseStageSize();
     const pxPerMeter = (w / Math.max(0.1, stageMetersWidth));
 
-    // Top ruler
     const topRuler = document.createElement('div');
     topRuler.className = 'ruler top-ruler';
     topRuler.style.width = `${w}px`;
@@ -2881,7 +3099,6 @@ ${sendsHTML}
     topTicks.className = 'ruler ticks';
     topRuler.appendChild(topTicks);
 
-    // Bottom ruler
     const bottomRuler = document.createElement('div');
     bottomRuler.className = 'ruler bottom-ruler';
     bottomRuler.style.width = `${w}px`;
@@ -2895,7 +3112,6 @@ ${sendsHTML}
     bottomTicks.className = 'ruler ticks';
     bottomRuler.appendChild(bottomTicks);
 
-    // center line marker vertical/horizontal
     const centerLineV = document.createElement('div');
     centerLineV.className = 'ruler-center-marker-vertical canvas-center-line';
     centerLineV.style.position = 'absolute';
@@ -2916,9 +3132,9 @@ ${sendsHTML}
     centerLineH.style.background = 'rgba(0,0,0,0.08)';
     centerLineH.style.pointerEvents = 'none';
 
-    // ticks every 0.5 meters or at sensible interval in px
-    const desiredPxInterval = 50; // target pixels between major ticks
-    const metersPerTick = Math.max(0.1, Math.round((desiredPxInterval / pxPerMeter) * 10) / 10);
+    const desiredPxInterval = 50;
+    const metersPerTick =
+      Math.max(0.1, Math.round((desiredPxInterval / pxPerMeter) * 10) / 10);
     const pxInterval = metersPerTick * pxPerMeter;
 
     const totalTicks = Math.ceil(w / pxInterval);
@@ -2934,7 +3150,6 @@ ${sendsHTML}
       tick.style.transform = 'translateX(-0.5px)';
       tick.style.pointerEvents = 'none';
 
-      // label every full meter (if close)
       const meters = (left / pxPerMeter);
       if (Math.abs(Math.round(meters) - meters) < 0.01) {
         const lbl = document.createElement('div');
@@ -2963,7 +3178,6 @@ ${sendsHTML}
     canvasRulers.appendChild(centerLineH);
   }
 
-  // ensure rulers render on resize
   window.addEventListener('resize', () => {
     renderRulers();
     scheduleRiderPreview();
@@ -2973,7 +3187,6 @@ ${sendsHTML}
   function refreshCustomIconsInPalette() {
     const customCategory = document.getElementById('category-custom');
     if (!customCategory) return;
-    // remove existing dynamic icons (we mark them with data-generated)
     customCategory.querySelectorAll('.stage-icon[data-generated="1"]').forEach(n => n.remove());
     customIcons.forEach((url, key) => {
       const div = document.createElement('div');
@@ -2981,7 +3194,8 @@ ${sendsHTML}
       div.draggable = true;
       div.dataset.type = key;
       div.dataset.generated = '1';
-      div.innerHTML = `<img src="${url}" style="max-width:60px; max-height:60px; display:block; margin:0 auto;">${key}`;
+      div.innerHTML =
+        `<img src="${url}" style="max-width:60px; max-height:60px; display:block; margin:0 auto;">${key}`;
       customCategory.appendChild(div);
     });
     attachPaletteDragHandlers();
@@ -3010,7 +3224,6 @@ ${sendsHTML}
   if (preferencesBtn) {
     preferencesBtn.addEventListener('click', () => {
       if (preferencesScreen) preferencesScreen.classList.add('active');
-      // populate with current config
       document.getElementById('pref-project-name').value = projectConfig.projectName || '';
       document.getElementById('pref-tour-name').value = projectConfig.tourName || '';
       document.getElementById('pref-date').value = projectConfig.date || '';
@@ -3019,24 +3232,37 @@ ${sendsHTML}
       document.getElementById('pref-sends-count').value = projectConfig.numSends || 0;
     });
   }
-  if (closePreferencesBtn) closePreferencesBtn.addEventListener('click', () => { if (preferencesScreen) preferencesScreen.classList.remove('active'); });
+  if (closePreferencesBtn) {
+    closePreferencesBtn.addEventListener('click', () => {
+      if (preferencesScreen) preferencesScreen.classList.remove('active');
+    });
+  }
 
   if (projectPreferencesForm) {
     projectPreferencesForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      projectConfig.projectName = document.getElementById('pref-project-name').value;
-      projectConfig.tourName = document.getElementById('pref-tour-name').value;
-      projectConfig.date = document.getElementById('pref-date').value;
-      projectConfig.stageSize = document.getElementById('pref-stage-size').value;
-      projectConfig.numInputChannels = parseInt(document.getElementById('pref-input-channels').value || 0);
-      projectConfig.numSends = parseInt(document.getElementById('pref-sends-count').value || 0);
+      projectConfig.projectName =
+        document.getElementById('pref-project-name').value;
+      projectConfig.tourName =
+        document.getElementById('pref-tour-name').value;
+      projectConfig.date =
+        document.getElementById('pref-date').value;
+      projectConfig.stageSize =
+        document.getElementById('pref-stage-size').value;
+      projectConfig.numInputChannels =
+        parseInt(document.getElementById('pref-input-channels').value || 0);
+      projectConfig.numSends =
+        parseInt(document.getElementById('pref-sends-count').value || 0);
       updateProjectInfoDisplay(projectConfig);
       if (preferencesScreen) preferencesScreen.classList.remove('active');
     });
   }
 
-  // ---------------- Render rulers once more after everything ready ----------------
-  setTimeout(() => { renderRulers(); scheduleRiderPreview(); }, 250);
+  // ---------------- Render rulers once more ----------------
+  setTimeout(() => {
+    renderRulers();
+    scheduleRiderPreview();
+  }, 250);
 
-  // End of DOMContentLoaded scope
+  // End DOMContentLoaded
 });

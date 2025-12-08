@@ -95,7 +95,6 @@
                             <div class="stage-icon" draggable="true" data-type="keyboard"><i class="fas fa-compact-disc"></i> Teclado</div>
                             <div class="stage-icon" draggable="true" data-type="vocalist"><i class="fas fa-user-circle"></i> Vocalista</div>
                             <div class="stage-icon" draggable="true" data-type="musician"><i class="fas fa-user"></i> Músico</div>
-                            <!-- Tarima 2m x 1m -->
                             <div class="stage-icon" draggable="true" data-type="platform-2x1"><i class="fas fa-th-large"></i> Tarima 2m x 1m</div>
                         </div>
                         <div id="category-mics" class="palette-category">
@@ -131,30 +130,40 @@
                             <div style="padding:8px;">
                                 <label for="custom-icon-input" style="display:block; margin-bottom:6px; font-weight:600;">Importar icono personalizado</label>
                                 <input type="file" id="custom-icon-input" accept="image/*">
-                                <small style="display:block; margin-top:8px; color:var(--color-text);">El icono importado aparecerá en la paleta y podrá arrastrarse al plano.</small>
+                                <small style="display:block; margin-top:8px; color:var(--color-text);">
+                                    El icono importado aparecerá en la paleta y podrá arrastrarse al plano.
+                                </small>
                             </div>
                         </div>
                     </div>
                 </aside>
 
                 <main id="canvas-area">
-                    <div id="stage-canvas" class="a4-proportional show-grid">
-                        <div id="canvas-rulers" aria-hidden="true"></div>
-                        <p class="canvas-placeholder">Arrastra y suelta elementos aquí</p>
-                    </div>
-                </main>
+    <div id="stage-canvas" class="a4-proportional show-grid">
+        <div id="canvas-rulers" aria-hidden="true"></div>
+
+        <!-- NUEVA ÁREA SEGURA DE TRABAJO -->
+        <div id="stage-work-area">
+            <p class="canvas-placeholder">Arrastra y suelta elementos aquí</p>
+        </div>
+    </div>
+</main>
 
                 <aside id="element-config-panel">
                     <h3>Configuración <i class="fas fa-palette"></i></h3>
-                    <p class="config-placeholder">Selecciona un elemento en el plano para configurar sus propiedades.</p>
+                    <p class="config-placeholder">
+                        Selecciona un elemento en el plano para configurar sus propiedades.
+                    </p>
 
                     <div id="canvas-controls" class="pref-section">
                         <h4>Opciones del Plano</h4>
                         <label for="grid-toggle">
                             <input type="checkbox" id="grid-toggle" checked> Mostrar Rejilla
                         </label>
-                        <!-- Nuevo botón para mostrar/ocultar etiquetas globalmente -->
-                        <button id="labels-toggle" class="btn small-toggle-btn" title="Mostrar / Ocultar etiquetas en el plano">Ocultar Etiquetas</button>
+                        <button id="labels-toggle" class="btn small-toggle-btn"
+                                title="Mostrar / Ocultar etiquetas en el plano">
+                            <i class="fas fa-tags"></i> Ocultar Etiquetas
+                        </button>
                     </div>
 
                     <div id="element-controls" style="display: none;">
@@ -162,6 +171,7 @@
 
                         <label for="element-name-input">Nombre/Etiqueta:</label>
                         <input type="text" id="element-name-input">
+
                         <label for="color-picker">Color de Fondo:</label>
                         <input type="color" id="color-picker">
 
@@ -178,15 +188,26 @@
                         <label for="scale-selector">Escala:</label>
                         <input type="range" id="scale-selector" min="0.5" max="2.0" step="0.1" value="1.0">
 
-                        <label style="margin-top:8px;"><input type="checkbox" id="show-label-checkbox"> Mostrar etiqueta</label>
+                        <label style="margin-top:8px;">
+                            <input type="checkbox" id="show-label-checkbox"> Mostrar etiqueta
+                        </label>
 
                         <div style="display:flex; gap:8px; margin-top:10px;">
-                            <button id="duplicate-element-btn" class="btn"><i class="fas fa-clone"></i> Duplicar</button>
-                            <button id="copy-element-btn" class="btn"><i class="fas fa-copy"></i> Copiar</button>
-                            <button id="paste-element-btn" class="btn"><i class="fas fa-paste"></i> Pegar</button>
+                            <button id="duplicate-element-btn" class="btn">
+                                <i class="fas fa-clone"></i> Duplicar
+                            </button>
+                            <button id="copy-element-btn" class="btn">
+                                <i class="fas fa-copy"></i> Copiar
+                            </button>
+                            <button id="paste-element-btn" class="btn">
+                                <i class="fas fa-paste"></i> Pegar
+                            </button>
                         </div>
 
-                        <button id="delete-element-btn" class="btn primary-btn" style="background-color: #dc3545; margin-top:10px;"><i class="fas fa-trash"></i> Eliminar Elemento</button>
+                        <button id="delete-element-btn" class="btn primary-btn"
+                                style="background-color: #dc3545; margin-top:10px;">
+                            <i class="fas fa-trash"></i> Eliminar Elemento
+                        </button>
                     </div>
                 </aside>
             </section>
@@ -194,8 +215,12 @@
             <section id="input-list" class="tab-screen">
                 <h2><i class="fas fa-list-alt"></i> Lista de Canales (Input List)</h2>
                 <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-                    <button id="add-input-channel-btn" class="btn primary-btn add-btn-center"><i class="fas fa-plus"></i> Añadir Canal</button>
-                    <button id="add-input-column-btn" class="btn add-column-btn"><i class="fas fa-columns"></i> Añadir Columna</button>
+                    <button id="add-input-channel-btn" class="btn primary-btn add-btn-center">
+                        <i class="fas fa-plus"></i> Añadir Canal
+                    </button>
+                    <button id="add-input-column-btn" class="btn add-column-btn">
+                        <i class="fas fa-columns"></i> Añadir Columna
+                    </button>
                 </div>
                 <table class="data-table">
                     <thead>
@@ -210,16 +235,19 @@
                             <th>Eliminar</th>
                         </tr>
                     </thead>
-                    <tbody id="input-list-body">
-                    </tbody>
+                    <tbody id="input-list-body"></tbody>
                 </table>
             </section>
 
             <section id="sends-list" class="tab-screen">
                 <h2><i class="fas fa-volume-up"></i> Envíos (Sends List)</h2>
                 <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-                    <button id="add-send-btn" class="btn primary-btn add-btn-center"><i class="fas fa-plus"></i> Añadir Envío</button>
-                    <button id="add-send-column-btn" class="btn add-column-btn"><i class="fas fa-columns"></i> Añadir Columna</button>
+                    <button id="add-send-btn" class="btn primary-btn add-btn-center">
+                        <i class="fas fa-plus"></i> Añadir Envío
+                    </button>
+                    <button id="add-send-column-btn" class="btn add-column-btn">
+                        <i class="fas fa-columns"></i> Añadir Columna
+                    </button>
                 </div>
                 <table class="data-table">
                     <thead>
@@ -233,8 +261,7 @@
                             <th>Eliminar</th>
                         </tr>
                     </thead>
-                    <tbody id="sends-list-body">
-                    </tbody>
+                    <tbody id="sends-list-body"></tbody>
                 </table>
             </section>
 
@@ -243,12 +270,17 @@
                 <form id="foh-config-form" class="pref-section">
                     <h4>Configuración de Consola</h4>
                     <label for="foh-console-model">Modelo de Consola:</label>
-                    <input type="text" id="foh-console-model" value="Modelo de Consola" required>
+                    <input type="text" id="foh-console-model"
+                           value="Modelo de Consola" required>
 
                     <label for="foh-patch-details">Detalles de Patching:</label>
-                    <textarea id="foh-patch-details" rows="4">Entradas 1-16 en preamps. Buses de salida: L/R (PA), Aux 1-4 (Monitores).</textarea>
+                    <textarea id="foh-patch-details" rows="4">
+Entradas 1-16 en preamps. Buses de salida: L/R (PA), Aux 1-4 (Monitores).
+                    </textarea>
 
-                    <button type="submit" class="btn primary-btn"><i class="fas fa-save"></i> Guardar Configuración FOH</button>
+                    <button type="submit" class="btn primary-btn">
+                        <i class="fas fa-save"></i> Guardar Configuración FOH
+                    </button>
                 </form>
             </section>
 
@@ -259,18 +291,33 @@
 
             <div class="pref-section">
                 <h3>Información / Notas del Rider</h3>
-                <label for="rider-tour-title" style="font-weight:700;">Título de la Gira (editable):</label>
-                <input type="text" id="rider-tour-title" value="Nombre de la Gira" style="width:100%; margin-bottom:8px;">
-                <label for="rider-editor" style="font-weight:700; margin-top:8px;">Editor de texto (notas / requerimientos técnicos):</label>
-                <div id="rider-editor" contenteditable="true" style="min-height:120px; border:1px solid var(--color-border); padding:8px; margin-top:6px; background:var(--color-surface);">Aquí puedes escribir las notas técnicas, necesidades del evento, detalles de contacto y cualquier información adicional para el técnico.</div>
+                <label for="rider-tour-title" style="font-weight:700;">
+                    Título de la Gira (editable):
+                </label>
+                <input type="text" id="rider-tour-title" value="Nombre de la Gira"
+                       style="width:100%; margin-bottom:8px;">
+                <label for="rider-editor"
+                       style="font-weight:700; margin-top:8px;">
+                    Editor de texto (notas / requerimientos técnicos):
+                </label>
+                <div id="rider-editor" contenteditable="true"
+                     style="min-height:120px; border:1px solid var(--color-border);
+                            padding:8px; margin-top:6px; background:var(--color-surface);">
+                    Aquí puedes escribir las notas técnicas, necesidades del evento,
+                    detalles de contacto y cualquier información adicional para el técnico.
+                </div>
             </div>
 
             <div class="pref-section">
                 <h3>Vista final (Plano, Listas y Envíos)</h3>
-                <p style="font-size:0.95em; color:var(--color-text);">Aquí se muestra la vista final combinada tal como se exportará/imprimirá: primero la información del Rider, luego el plano (sin rejilla) y las listas. La columna "Eliminar" está oculta en esta vista final.</p>
+                <p style="font-size:0.95em; color:var(--color-text);">
+                    Aquí se muestra la vista final combinada tal como se exportará/imprimirá:
+                    primero la información del Rider, luego el plano (sin rejilla) y las listas.
+                    La columna "Eliminar" está oculta en esta vista final.
+                </p>
 
                 <div id="rider-preview" class="rider-preview">
-                    <!-- El preview se genera dinámicamente por script.js -->
+                    <!-- Generado dinámicamente por script.js -->
                 </div>
             </div>
         </section>
@@ -292,7 +339,8 @@
                         <input type="date" id="pref-date">
 
                         <label for="pref-stage-size">Tamaño de escenario (Ancho x Alto):</label>
-                        <input type="text" id="pref-stage-size" placeholder="Ej: 8m x 6m" required>
+                        <input type="text" id="pref-stage-size"
+                               placeholder="Ej: 8m x 6m" required>
 
                         <label for="pref-input-channels">Canales de entrada:</label>
                         <input type="number" id="pref-input-channels" min="0" required>
@@ -300,7 +348,9 @@
                         <label for="pref-sends-count">Cantidad de envíos:</label>
                         <input type="number" id="pref-sends-count" min="0" required>
 
-                        <button type="submit" class="btn primary-btn"><i class="fas fa-save"></i> Guardar Cambios</button>
+                        <button type="submit" class="btn primary-btn">
+                            <i class="fas fa-save"></i> Guardar Cambios
+                        </button>
                     </form>
                 </div>
 
@@ -309,7 +359,9 @@
                     <p>Modo Día/Noche: Usa el botón en la barra superior para cambiar el tema visual.</p>
                 </div>
 
-                <button id="close-preferences-btn" class="btn"><i class="fas fa-times"></i> Cerrar</button>
+                <button id="close-preferences-btn" class="btn">
+                    <i class="fas fa-times"></i> Cerrar
+                </button>
             </div>
         </section>
 
