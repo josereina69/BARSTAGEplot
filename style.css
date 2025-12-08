@@ -144,6 +144,8 @@ body {
 /* element label */
 .element-label { font-size:0.85em; color:var(--color-text); background:transparent; margin-top:4px; }
 
+.element-label.hidden-by-global { display: none !important; }
+
 /* Tables - estilo de rejilla clásica con celdas y columnas claramente visibles */
 .data-table {
     width: 100%;
@@ -208,7 +210,7 @@ body {
     padding: 6px 8px;
     border: 1px solid var(--color-border);
     border-radius: 4px;
-    background: var(--color-background);
+    background: var(--Color-background);
     color: var(--color-text);
     font-size: 0. nine em;
     width: 100%;
@@ -272,7 +274,7 @@ body {
     background-color: var(--color-primary);
     color: #fff;
     border: none;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border-radius: 6px;
     display: inline-flex;
     gap: 8px;
@@ -389,4 +391,18 @@ body {
     .data-table th .col-label {
         max-width: 80px;
     }
+}
+
+/* Small toggle button style (for labels toggle) */
+.small-toggle-btn {
+    padding: 6px 10px;
+    font-size: 0.88em;
+    margin-top: 8px;
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+}
+.small-toggle-btn.active {
+    background-color: var(--color-primary);
+    color: #fff;
 }

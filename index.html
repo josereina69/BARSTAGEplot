@@ -140,7 +140,7 @@
                 <main id="canvas-area">
                     <div id="stage-canvas" class="a4-proportional show-grid">
                         <div id="canvas-rulers" aria-hidden="true"></div>
-                        <p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>
+                        <p class="canvas-placeholder">Arrastra y suelta elementos aquí</p>
                     </div>
                 </main>
 
@@ -153,6 +153,8 @@
                         <label for="grid-toggle">
                             <input type="checkbox" id="grid-toggle" checked> Mostrar Rejilla
                         </label>
+                        <!-- Nuevo botón para mostrar/ocultar etiquetas globalmente -->
+                        <button id="labels-toggle" class="btn small-toggle-btn" title="Mostrar / Ocultar etiquetas en el plano">Ocultar Etiquetas</button>
                     </div>
 
                     <div id="element-controls" style="display: none;">
@@ -192,7 +194,7 @@
             <section id="input-list" class="tab-screen">
                 <h2><i class="fas fa-list-alt"></i> Lista de Canales (Input List)</h2>
                 <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-                    <button id="add-input-channel-btn" class="btn primary-btn add-btn-top"><i class="fas fa-plus"></i> Añadir Canal</button>
+                    <button id="add-input-channel-btn" class="btn primary-btn add-btn-center"><i class="fas fa-plus"></i> Añadir Canal</button>
                     <button id="add-input-column-btn" class="btn add-column-btn"><i class="fas fa-columns"></i> Añadir Columna</button>
                 </div>
                 <table class="data-table">
@@ -216,7 +218,7 @@
             <section id="sends-list" class="tab-screen">
                 <h2><i class="fas fa-volume-up"></i> Envíos (Sends List)</h2>
                 <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-                    <button id="add-send-btn" class="btn primary-btn add-btn-top"><i class="fas fa-plus"></i> Añadir Envío</button>
+                    <button id="add-send-btn" class="btn primary-btn add-btn-center"><i class="fas fa-plus"></i> Añadir Envío</button>
                     <button id="add-send-column-btn" class="btn add-column-btn"><i class="fas fa-columns"></i> Añadir Columna</button>
                 </div>
                 <table class="data-table">

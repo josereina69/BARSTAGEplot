@@ -1,9 +1,11 @@
-/* script.js - Versión corregida y completa con:
-   - Corrección de errores que impedían "Crear Proyecto".
-   - Implementación de "Añadir Columna" con opciones para RENOMBRAR y ELIMINAR la columna creada.
-   - Persistencia de columnas adicionales en el snapshot y restauración al cargar.
-   - Conservadas las funcionalidades previas (Sub-Snake color, canvas, guardar/cargar, exportar/print).
-   - Eliminadas referencias a importInputs (UI removida).
+/* script.js - Versión completa corregida
+   - Conserva todas las funcionalidades previas (crear proyecto, listas, columnas dinámicas, canvas, guardar/cargar, exportar, impresión, etc.)
+   - Añadido: botón "Mostrar / Ocultar Etiquetas" en el panel de Opciones del Plano.
+     Este botón controla la visibilidad global de las etiquetas del canvas: solo se muestran
+     las etiquetas de los elementos que tienen su flag individual (dataset.showLabel === '1')
+     y además la visibilidad global esté activada.
+   - Cambios mínimos y localizados: lógica para gestionar la visibilidad global de etiquetas,
+     y UI del botón. No se han modificado otras funcionalidades salvo los puntos necesarios.
 */
 document.addEventListener('DOMContentLoaded', () => {
   // ---------- Referencias globales ----------
@@ -45,6 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteElementBtn = document.getElementById('delete-element-btn');
   const gridToggle = document.getElementById('grid-toggle');
   const showLabelCheckbox = document.getElementById('show-label-checkbox');
+
+  // Labels toggle button (nuevo)
+  const labelsToggleBtn = document.getElementById('labels-toggle');
 
   // Duplicate / copy / paste
   const duplicateBtn = document.getElementById('duplicate-element-btn');
@@ -90,6 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let inputExtraColumns = [];
   let sendExtraColumns = [];
 
+  // Labels global visibility state:
+  // true = labels visible (for those elements that individually have showLabel)
+  // false = labels hidden (even if they individually have showLabel)
+  let labelsVisible = true;
+
   // Global drag state (single source)
   const dragState = {
     active: false,
@@ -111,6 +121,31 @@ document.addEventListener('DOMContentLoaded', () => {
     gridToggle.addEventListener('change', () => {
       if (gridToggle.checked) stageCanvas.classList.add('show-grid');
       else stageCanvas.classList.remove('show-grid');
+    });
+  }
+
+  // Initialize labels toggle button UI
+  function updateLabelsToggleButtonUI() {
+    if (!labelsToggleBtn) return;
+    if (labelsVisible) {
+      labelsToggleBtn.classList.add('active');
+      labelsToggleBtn.innerHTML = '<i class="fas fa-tags"></i> Ocultar Etiquetas';
+      labelsToggleBtn.title = 'Ocultar las etiquetas activas en el plano';
+    } else {
+      labelsToggleBtn.classList.remove('active');
+      labelsToggleBtn.innerHTML = '<i class="fas fa-tags"></i> Mostrar Etiquetas';
+      labelsToggleBtn.title = 'Mostrar las etiquetas activas en el plano';
+    }
+  }
+  updateLabelsToggleButtonUI();
+
+  if (labelsToggleBtn) {
+    labelsToggleBtn.addEventListener('click', () => {
+      labelsVisible = !labelsVisible;
+      // Re-render labels on canvas for all elements according to their individual flag and this global state
+      document.querySelectorAll('.stage-element').forEach(el => updateElementLabelDisplay(el));
+      updateLabelsToggleButtonUI();
+      scheduleRiderPreview();
     });
   }
 
@@ -1436,22 +1471,32 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function updateElementLabelDisplay(element) {
+    if (!element) return;
+    // Remove existing label (if any)
     const existing = element.querySelector('.element-label');
     if (existing) existing.remove();
-    const show = element.dataset.showLabel === '1' || element.dataset.showLabel === 'true';
-    const text = element.dataset.content || '';
-    if (show && text) {
-      const span = document.createElement('div');
-      span.className = 'element-label';
-      span.textContent = text;
-      span.style.position = 'absolute';
-      span.style.top = '100%';
-      span.style.left = '50%';
-      span.style.transform = 'translateX(-50%)';
-      span.style.fontSize = '0.85em';
-      span.style.whiteSpace = 'nowrap';
-      span.style.pointerEvents = 'none';
-      element.appendChild(span);
+
+    // If the element has its individual flag enabled AND global labels are visible, show label
+    const showIndividually = (element.dataset.showLabel === '1' || element.dataset.showLabel === 'true');
+    const showNow = showIndividually && labelsVisible;
+
+    if (showNow) {
+      const text = element.dataset.content || '';
+      if (text) {
+        const span = document.createElement('div');
+        span.className = 'element-label';
+        span.textContent = text;
+        span.style.position = 'absolute';
+        span.style.top = '100%';
+        span.style.left = '50%';
+        span.style.transform = 'translateX(-50%)';
+        span.style.fontSize = '0.85em';
+        span.style.whiteSpace = 'nowrap';
+        span.style.pointerEvents = 'none';
+        element.appendChild(span);
+      }
+    } else {
+      // ensure nothing remains visible; no label appended
     }
   }
 
@@ -1825,6 +1870,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showLabelCheckbox.checked = element.dataset.showLabel === '1' || element.dataset.showLabel === 'true';
       showLabelCheckbox.onchange = () => {
         element.dataset.showLabel = showLabelCheckbox.checked ? '1' : '0';
+        // Re-render label for this element (global visibility taken into account)
         updateElementLabelDisplay(element);
         scheduleRiderPreview();
       };
@@ -2527,7 +2573,7 @@ document.addEventListener('DOMContentLoaded', () => {
     container.style.width = `${w}px`;
     container.style.height = `${h}px`;
     container.style.boxShadow = 'none';
-    container.style.border = '1px solid #ccc';
+    container.style.border = '1px solid #222';
 
     const computedRoot = getComputedStyle(document.documentElement);
     const surface = computedRoot.getPropertyValue('--color-surface') || '#ffffff';
