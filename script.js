@@ -1,7 +1,8 @@
 /* script.js
-   Versión adaptada:
-   - El propio #stage-canvas (800x500) es el área de trabajo.
-   - No se usa #stage-work-area.
+   - #stage-canvas (800x500) es el área de trabajo.
+   - El tamaño en metros es solo informativo.
+   - Preferencias permiten cambiar canales/envíos con aviso.
+   - Cambiar nombre de gira actualiza el Rider (sin pisar título personalizado).
    - Nota larga bajo el plano (rider-stage-notes) se guarda/carga.
 */
 
@@ -150,15 +151,28 @@ document.addEventListener('DOMContentLoaded', () => {
         numSends: parseInt(document.getElementById('sends-count')?.value || 0)
       };
 
+      // Actualizar cabecera
+      updateProjectInfoDisplay(projectConfig);
+
+      // Crear tablas
+      initializeInputList(projectConfig.numInputChannels);
+      initializeSendsList(projectConfig.numSends);
+
+      // Mostrar nav y plano
       if (projectInitScreen) projectInitScreen.classList.remove('active');
       if (mainNav) mainNav.style.display = 'flex';
       body.classList.remove('init-screen');
-
-      initializeInputList(projectConfig.numInputChannels);
-      initializeSendsList(projectConfig.numSends);
-      updateProjectInfoDisplay(projectConfig);
       activateTab('stage-plot');
-      renderRulers();
+
+      // Sincronizar formulario de preferencias con datos iniciales
+      syncPreferencesFormFromConfig();
+
+      // Sincronizar título del rider con nombre de gira (si todavía no hay uno)
+      if (riderTitleInput) {
+        riderTitleInput.value = projectConfig.tourName || '';
+      }
+
+      renderRidersInfoOnly();
       scheduleRiderPreview();
     });
   }
@@ -1412,7 +1426,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       draggedElement.style.left = `${x}px`;
-      draggedElement.style.top = `${y}px`;
+      draggedElement.style.top = `${y}px}`;
       draggedElement.style.zIndex = '10';
       draggedElement.dataset.rotation = '0';
       draggedElement.dataset.scale = '1.0';
@@ -2509,10 +2523,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     updateProjectInfoDisplay(projectConfig);
+    syncPreferencesFormFromConfig();
+    syncInitFormFromConfig();
+
+    // También sincronizamos el título del rider si no se ha personalizado antes
+    if (riderTitleInput) {
+      const currentRiderTitle = riderTitleInput.value.trim();
+      if (!currentRiderTitle) riderTitleInput.value = projectConfig.tourName || '';
+    }
+
     if (projectInitScreen) projectInitScreen.classList.remove('active');
     if (mainNav) mainNav.style.display = 'flex';
     body.classList.remove('init-screen');
     activateTab('stage-plot');
+    renderRidersInfoOnly();
     renderRulers();
     scheduleRiderPreview();
     attachColumnDragHandlersToAllTables();
@@ -2614,7 +2638,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------------- Rider preview / serializing tables ----------------
+  // ---------------- Rider preview / serializing tablas ----------------
   function serializeTableToElement(tableEl) {
     if (!tableEl) return document.createElement('div');
 
@@ -2689,7 +2713,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function buildStaticStageElement(hideGrid = true) {
-    const original = document.getElementById('stage-canvas'); // clonamos el canvas completo
+    const original = document.getElementById('stage-canvas');
     if (!original) return document.createElement('div');
 
     const parentRect = original.getBoundingClientRect();
@@ -2763,6 +2787,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return container;
   }
 
+  function renderRidersInfoOnly() {
+    // por si en el futuro muestras info de metros aquí, ahora mismo no hace nada especial
+  }
+
   function renderRiderPreview() {
     if (!riderPreview) return;
     riderPreview.innerHTML = '';
@@ -2774,6 +2802,15 @@ document.addEventListener('DOMContentLoaded', () => {
       riderTitleInput?.value || projectConfig.tourName || 'Título de la Gira';
     hTitle.style.marginBottom = '8px';
     titleSection.appendChild(hTitle);
+
+    if (projectConfig.stageSize) {
+      const pSize = document.createElement('div');
+      pSize.style.fontSize = '0.9em';
+      pSize.style.marginBottom = '6px';
+      pSize.textContent = `Tamaño de escenario (referencia): ${projectConfig.stageSize}`;
+      titleSection.appendChild(pSize);
+    }
+
     riderPreview.appendChild(titleSection);
 
     const editorSection = document.createElement('div');
@@ -2880,7 +2917,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------------- Export / Print helpers ----------------
+   // ---------------- Export / Print helpers ----------------
   function exportRiderAsHTML() {
     return new Promise((resolve) => {
       renderRiderPreview();
@@ -3026,7 +3063,7 @@ ${sendsHTML}
     URL.revokeObjectURL(url);
   }
 
-    // ---------------- Helpers ----------------
+  // ---------------- Helpers ----------------
   function escapeHtml(s) {
     if (!s) return '';
     return s
@@ -3071,27 +3108,10 @@ ${sendsHTML}
     scheduleRiderPreview();
   }
 
-  // ---------------- Rulers / Stage size ----------------
-  function parseStageSize() {
-    const raw = (
-      projectConfig.stageSize ||
-      document.getElementById('stage-size')?.value ||
-      document.getElementById('pref-stage-size')?.value ||
-      ''
-    ).toString().toLowerCase();
-    const numbers = raw.match(/([\d.]+)\s*m?/g);
-    if (numbers && numbers.length >= 2) {
-      const w = parseFloat(numbers[0]);
-      const h = parseFloat(numbers[1]);
-      if (!isNaN(w) && !isNaN(h)) return { w, h };
-    }
-    return { w: 8, h: 6 };
-  }
-
+  // Como el tamaño en metros es solo informativo, renderRulers no dibuja nada especial
   function renderRulers() {
-    if (!canvasRulers || !stageCanvas) return;
+    if (!canvasRulers) return;
     canvasRulers.innerHTML = '';
-    // Como ahora no usamos reglas visibles, no dibujamos nada
   }
 
   window.addEventListener('resize', () => {
@@ -3133,16 +3153,45 @@ ${sendsHTML}
     });
   }
 
+  // ---------------- Sincronizar formularios con config ----------------
+  function syncPreferencesFormFromConfig() {
+    if (!projectPreferencesForm) return;
+    const pName = document.getElementById('pref-project-name');
+    const pTour = document.getElementById('pref-tour-name');
+    const pDate = document.getElementById('pref-date');
+    const pSize = document.getElementById('pref-stage-size');
+    const pInputs = document.getElementById('pref-input-channels');
+    const pSends = document.getElementById('pref-sends-count');
+
+    if (pName)  pName.value  = projectConfig.projectName || '';
+    if (pTour)  pTour.value  = projectConfig.tourName || '';
+    if (pDate)  pDate.value  = projectConfig.date || '';
+    if (pSize)  pSize.value  = projectConfig.stageSize || '';
+    if (pInputs)pInputs.value= projectConfig.numInputChannels || 0;
+    if (pSends) pSends.value = projectConfig.numSends || 0;
+  }
+
+  function syncInitFormFromConfig() {
+    const initProjectName  = document.getElementById('project-name');
+    const initTourName     = document.getElementById('tour-name');
+    const initDate         = document.getElementById('date');
+    const initStageSize    = document.getElementById('stage-size');
+    const initInputCh      = document.getElementById('input-channels');
+    const initSendsCount   = document.getElementById('sends-count');
+
+    if (initProjectName) initProjectName.value = projectConfig.projectName || '';
+    if (initTourName)    initTourName.value    = projectConfig.tourName || '';
+    if (initDate)        initDate.value        = projectConfig.date || '';
+    if (initStageSize)   initStageSize.value   = projectConfig.stageSize || '';
+    if (initInputCh)     initInputCh.value     = projectConfig.numInputChannels || 0;
+    if (initSendsCount)  initSendsCount.value  = projectConfig.numSends || 0;
+  }
+
   // ---------------- Preferences modal ----------------
   if (preferencesBtn) {
     preferencesBtn.addEventListener('click', () => {
       if (preferencesScreen) preferencesScreen.classList.add('active');
-      document.getElementById('pref-project-name').value = projectConfig.projectName || '';
-      document.getElementById('pref-tour-name').value = projectConfig.tourName || '';
-      document.getElementById('pref-date').value = projectConfig.date || '';
-      document.getElementById('pref-stage-size').value = projectConfig.stageSize || '';
-      document.getElementById('pref-input-channels').value = projectConfig.numInputChannels || 0;
-      document.getElementById('pref-sends-count').value = projectConfig.numSends || 0;
+      syncPreferencesFormFromConfig();
     });
   }
   if (closePreferencesBtn) {
@@ -3154,19 +3203,63 @@ ${sendsHTML}
   if (projectPreferencesForm) {
     projectPreferencesForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      projectConfig.projectName =
+
+      const oldInputs = projectConfig.numInputChannels || 0;
+      const oldSends  = projectConfig.numSends || 0;
+      const oldTour   = projectConfig.tourName || '';
+
+      const newProjectName =
         document.getElementById('pref-project-name').value;
-      projectConfig.tourName =
+      const newTourName =
         document.getElementById('pref-tour-name').value;
-      projectConfig.date =
+      const newDate =
         document.getElementById('pref-date').value;
-      projectConfig.stageSize =
+      const newStageSize =
         document.getElementById('pref-stage-size').value;
-      projectConfig.numInputChannels =
+      const newInputs =
         parseInt(document.getElementById('pref-input-channels').value || 0);
-      projectConfig.numSends =
+      const newSends =
         parseInt(document.getElementById('pref-sends-count').value || 0);
+
+      const inputsChanged = newInputs !== oldInputs;
+      const sendsChanged  = newSends  !== oldSends;
+
+      if (inputsChanged || sendsChanged) {
+        let msg = 'Vas a cambiar el número de canales y/o envíos.\n\n';
+        msg += '- Se volverán a crear las tablas de canales y envíos.\n';
+        msg += '- Se perderán los datos escritos actualmente en esas listas.\n\n';
+        msg += '¿Quieres continuar?';
+        const confirmed = window.confirm(msg);
+        if (!confirmed) return;
+      }
+
+      projectConfig.projectName = newProjectName;
+      projectConfig.tourName    = newTourName;
+      projectConfig.date        = newDate;
+      projectConfig.stageSize   = newStageSize;
+      projectConfig.numInputChannels = newInputs;
+      projectConfig.numSends         = newSends;
+
       updateProjectInfoDisplay(projectConfig);
+
+      if (inputsChanged) initializeInputList(projectConfig.numInputChannels);
+      if (sendsChanged)  initializeSendsList(projectConfig.numSends);
+
+      renderRulers();
+
+      // sincronizar inicio
+      syncInitFormFromConfig();
+
+      // sincronizar título de Rider si no está personalizado
+      if (riderTitleInput) {
+        const currentRiderTitle = riderTitleInput.value.trim();
+        if (!currentRiderTitle || currentRiderTitle === oldTour) {
+          riderTitleInput.value = newTourName || '';
+        }
+      }
+
+      scheduleRiderPreview();
+
       if (preferencesScreen) preferencesScreen.classList.remove('active');
     });
   }
