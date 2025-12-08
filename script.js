@@ -1,8 +1,8 @@
-/* script.js - Versión con:
-   - Botón global Mostrar/Ocultar etiquetas.
-   - Plano estático en Rider respetando visibilidad de etiquetas.
-   - Área de trabajo segura (#stage-work-area) más pequeña dentro del canvas.
-   - Clamp de movimiento para que los elementos NO puedan salir del área segura.
+/* script.js - versión con:
+   - Área de trabajo segura (#stage-work-area).
+   - Bloqueo de elementos dentro del área segura.
+   - Plano estático escalado en impresión.
+   - Nota específica bajo el plano en Rider (EDITOR LARGO, se guarda en .barstage).
 */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Plano y listas
   const stageCanvas = document.getElementById('stage-canvas');
   const canvasRulers = document.getElementById('canvas-rulers');
-  const workArea = document.getElementById('stage-work-area');   // NUEVA ÁREA SEGURA
+  const workArea = document.getElementById('stage-work-area');   // área segura
   const inputListBody = document.getElementById('input-list-body');
   const sendsListBody = document.getElementById('sends-list-body');
 
@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const riderPreview = document.getElementById('rider-preview');
   const riderTitleInput = document.getElementById('rider-tour-title');
   const riderEditor = document.getElementById('rider-editor');
+  const riderStageNotesInput = document.getElementById('rider-stage-notes'); // NUEVO (div contenteditable)
 
   // Palette custom icon input
   const customIconInput = document.getElementById('custom-icon-input');
@@ -74,29 +75,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const addSendColumnBtn = document.getElementById('add-send-column-btn');
 
   // Estado
-  let selectedElement = null;           // primary element for panel
-  const selectedElements = new Set();   // multi-selection
+  let selectedElement = null;
+  const selectedElements = new Set();
   let iconCounter = 1;
   let draggedRow = null;
 
-  // clipboard
   let clipboardElementData = null;
 
-  // custom icon store
   const customIcons = new Map();
   let customIconCounter = 1;
 
-  // Map que liga nombre de Sub-Snake -> color
   const subSnakeColorMap = new Map();
 
-  // Column definitions
   let inputExtraColumns = [];
   let sendExtraColumns = [];
 
-  // Visibilidad global de etiquetas
   let labelsVisible = true;
 
-  // Global drag state (canvas)
   const dragState = {
     active: false,
     multi: false,
@@ -119,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Labels toggle UI
   function updateLabelsToggleButtonUI() {
     if (!labelsToggleBtn) return;
     if (labelsVisible) {
@@ -546,13 +540,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return td;
   }
 
-  // ---------------- Helpers input/sends ----------------
-  function getMicOptions() {
-    const suggestedMics = new Set();
-    Object.values(SUGERENCIAS_MIC).flat().forEach(mic => suggestedMics.add(mic.name));
-    return Array.from(suggestedMics).map(m => `<option value="${m}">`).join('');
-  }
-
   const INPUT_DEFAULT_HEADERS = ['Ch', 'Nombre de canal', 'Mic/DI', 'Phantom', 'Pie', 'Sub-Snake', 'Notas', 'Eliminar'];
   const SEND_DEFAULT_HEADERS = ['Send', 'Nombre', 'Tipo', 'Mix', 'EQ/FX', 'Notas', 'Eliminar'];
 
@@ -567,14 +554,18 @@ document.addEventListener('DOMContentLoaded', () => {
     return Array.from(ths).map(th => ((th.dataset && th.dataset.label) ? th.dataset.label : th.textContent).trim());
   }
 
-  // Ensure mic datalist exists
+  // Mic datalist
   let micDatalist = document.getElementById('mic-datalist');
   if (!micDatalist) {
     micDatalist = document.createElement('datalist');
     micDatalist.id = 'mic-datalist';
     document.body.appendChild(micDatalist);
   }
-  micDatalist.innerHTML = getMicOptions();
+  micDatalist.innerHTML = (() => {
+    const set = new Set();
+    Object.values(SUGERENCIAS_MIC).flat().forEach(m => set.add(m.name));
+    return Array.from(set).map(m => `<option value="${m}">`).join('');
+  })();
 
   // ---------------- Sub-Snake color helpers ----------------
   function updateSubsnakeColorForName(name, color) {
@@ -594,6 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ---------------- Crear filas de Input List ----------------
   function createChannelRow(channelNumber, channelData = null) {
     const row = document.createElement('tr');
     row.draggable = true;
@@ -611,15 +603,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const defaultSubSnakeName = isLoad ? channelData.subSnake : '';
     const defaultSubSnakeColor = isLoad ? channelData.subSnakeColor : '#ffffff';
     const defaultNotes = isLoad ? channelData.notes : '';
-
-    let micDatalist = document.getElementById('mic-datalist');
-    if (!micDatalist) {
-      micDatalist = document.createElement('datalist');
-      micDatalist.id = 'mic-datalist';
-      document.body.appendChild(micDatalist);
-    }
-    micDatalist.innerHTML = getMicOptions();
-    ensureStandDatalist();
 
     const headerOrder = getTableHeaderOrder('#input-list .data-table', INPUT_DEFAULT_HEADERS);
 
@@ -936,6 +919,7 @@ document.addEventListener('DOMContentLoaded', () => {
     attachColumnDragHandlersToAllTables();
   }
 
+  // ---------------- Crear filas de Sends ----------------
   function createSendRow(sendNumber, sendData = null) {
     const row = document.createElement('tr');
     row.draggable = true;
@@ -2307,7 +2291,8 @@ document.addEventListener('DOMContentLoaded', () => {
       sendsList: collectSendsList(),
       rider: {
         title: riderTitleInput?.value || '',
-        notes: riderEditor?.innerHTML || ''
+        notes: riderEditor?.innerHTML || '',
+        stageNote: riderStageNotesInput?.innerHTML || ''   // NUEVO: HTML largo
       },
       customIcons: Array.from(customIcons.entries()),
       inputExtraColumns: inputExtraColumns,
@@ -2512,6 +2497,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.rider) {
       if (riderTitleInput) riderTitleInput.value = data.rider.title || '';
       if (riderEditor) riderEditor.innerHTML = data.rider.notes || '';
+      if (riderStageNotesInput) riderStageNotesInput.innerHTML = data.rider.stageNote || '';
     }
 
     (data.inputList || []).forEach(ch => {
@@ -2795,15 +2781,33 @@ document.addEventListener('DOMContentLoaded', () => {
     editorSection.innerHTML = riderEditor?.innerHTML || '';
     riderPreview.appendChild(editorSection);
 
+    // ---- Plano + nota bajo el plano (texto largo) ----
     const stageWrap = document.createElement('div');
     stageWrap.className = 'rider-section';
     const hStage = document.createElement('h3');
     hStage.textContent = 'Plano (Stage Plot)';
     stageWrap.appendChild(hStage);
+
     const staticStage = buildStaticStageElement(true);
     stageWrap.appendChild(staticStage);
+
+    // Nota bajo el plano: usamos HTML del editor largo
+    if (riderStageNotesInput) {
+      const html = riderStageNotesInput.innerHTML.trim();
+      const text = riderStageNotesInput.textContent.trim();
+      if (text !== '') {
+        const noteDiv = document.createElement('div');
+        noteDiv.style.marginTop = '6px';
+        noteDiv.style.fontStyle = 'italic';
+        noteDiv.style.fontSize = '0.9em';
+        noteDiv.innerHTML = html;
+        stageWrap.appendChild(noteDiv);
+      }
+    }
+
     riderPreview.appendChild(stageWrap);
 
+    // Lista de canales
     const inputsWrap = document.createElement('div');
     inputsWrap.className = 'rider-section';
     const hInputs = document.createElement('h3');
@@ -2815,6 +2819,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inputsWrap.appendChild(serializedInputs);
     riderPreview.appendChild(inputsWrap);
 
+    // Envíos
     const sendsWrap = document.createElement('div');
     sendsWrap.className = 'rider-section';
     const hSends = document.createElement('h3');
@@ -2826,6 +2831,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sendsWrap.appendChild(serializedSends);
     riderPreview.appendChild(sendsWrap);
 
+    // FOH
     const fohWrap = document.createElement('div');
     fohWrap.className = 'rider-section';
     const hFoh = document.createElement('h3');
@@ -2868,6 +2874,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (stageCanvas) configObserver.observe(stageCanvas, {
     childList: true, subtree: true, attributes: true, characterData: true
   });
+
+  if (riderStageNotesInput) {
+    riderStageNotesInput.addEventListener('input', () => {
+      scheduleRiderPreview(200);
+    });
+  }
 
   // ---------------- Export / Print helpers ----------------
   function exportRiderAsHTML() {
@@ -2928,7 +2940,7 @@ ${riderPreview.innerHTML}
 .rider-section { page-break-inside: avoid; break-inside: avoid-column; }
 .rider-section:not(:last-child) { page-break-after: always; break-after: page; }
 body { -webkit-print-color-adjust: exact; }
-.rider-print-wrapper { padding: 10px; }
+.rider-print-wrapper { padding: 8mm; }
 .rider-print-wrapper .rider-section { page-break-inside: avoid; margin-bottom: 12px; }
 .rider-print-wrapper pre { white-space: pre-wrap; }
 </style>
@@ -3015,7 +3027,7 @@ ${sendsHTML}
     URL.revokeObjectURL(url);
   }
 
-  // ---------------- Helpers ----------------
+    // ---------------- Helpers ----------------
   function escapeHtml(s) {
     if (!s) return '';
     return s
@@ -3258,7 +3270,6 @@ ${sendsHTML}
     });
   }
 
-  // ---------------- Render rulers once more ----------------
   setTimeout(() => {
     renderRulers();
     scheduleRiderPreview();

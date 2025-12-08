@@ -71,6 +71,7 @@
 
         <div id="tab-content">
 
+            <!-- PLANO -->
             <section id="stage-plot" class="tab-screen">
                 <aside id="element-palette">
                     <h3>Elementos <i class="fas fa-box-open"></i></h3>
@@ -139,15 +140,15 @@
                 </aside>
 
                 <main id="canvas-area">
-    <div id="stage-canvas" class="a4-proportional show-grid">
-        <div id="canvas-rulers" aria-hidden="true"></div>
+                    <div id="stage-canvas" class="a4-proportional show-grid">
+                        <div id="canvas-rulers" aria-hidden="true"></div>
 
-        <!-- NUEVA ÁREA SEGURA DE TRABAJO -->
-        <div id="stage-work-area">
-            <p class="canvas-placeholder">Arrastra y suelta elementos aquí</p>
-        </div>
-    </div>
-</main>
+                        <!-- Área segura de trabajo para elementos -->
+                        <div id="stage-work-area">
+                            <p class="canvas-placeholder">Arrastra y suelta elementos aquí</p>
+                        </div>
+                    </div>
+                </main>
 
                 <aside id="element-config-panel">
                     <h3>Configuración <i class="fas fa-palette"></i></h3>
@@ -212,6 +213,7 @@
                 </aside>
             </section>
 
+            <!-- LISTA DE CANALES -->
             <section id="input-list" class="tab-screen">
                 <h2><i class="fas fa-list-alt"></i> Lista de Canales (Input List)</h2>
                 <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
@@ -239,6 +241,7 @@
                 </table>
             </section>
 
+            <!-- ENVIOS -->
             <section id="sends-list" class="tab-screen">
                 <h2><i class="fas fa-volume-up"></i> Envíos (Sends List)</h2>
                 <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
@@ -265,6 +268,7 @@
                 </table>
             </section>
 
+            <!-- FOH -->
             <section id="foh-config" class="tab-screen">
                 <h2><i class="fas fa-sliders-h"></i> Configuración FOH</h2>
                 <form id="foh-config-form" class="pref-section">
@@ -286,16 +290,19 @@ Entradas 1-16 en preamps. Buses de salida: L/R (PA), Aux 1-4 (Monitores).
 
         </div>
 
+        <!-- RIDER -->
         <section id="rider-menu" class="tab-screen">
             <h2><i class="fas fa-file-contract"></i> Rider Técnico (Vista final)</h2>
 
             <div class="pref-section">
                 <h3>Información / Notas del Rider</h3>
+
                 <label for="rider-tour-title" style="font-weight:700;">
                     Título de la Gira (editable):
                 </label>
                 <input type="text" id="rider-tour-title" value="Nombre de la Gira"
                        style="width:100%; margin-bottom:8px;">
+
                 <label for="rider-editor"
                        style="font-weight:700; margin-top:8px;">
                     Editor de texto (notas / requerimientos técnicos):
@@ -305,6 +312,20 @@ Entradas 1-16 en preamps. Buses de salida: L/R (PA), Aux 1-4 (Monitores).
                             padding:8px; margin-top:6px; background:var(--color-surface);">
                     Aquí puedes escribir las notas técnicas, necesidades del evento,
                     detalles de contacto y cualquier información adicional para el técnico.
+                </div>
+
+                <!-- NUEVO: nota específica bajo el plano, texto largo -->
+                <label for="rider-stage-notes"
+                       style="font-weight:700; margin-top:12px; display:block;">
+                    Nota específica bajo el plano (texto largo):
+                </label>
+                <div id="rider-stage-notes" contenteditable="true"
+                     style="min-height:80px;
+                            border:1px solid var(--color-border);
+                            padding:8px;
+                            margin-top:4px;
+                            background:var(--color-surface);">
+                    <!-- Escribe aquí notas o aclaraciones específicas del plano -->
                 </div>
             </div>
 
@@ -322,6 +343,7 @@ Entradas 1-16 en preamps. Buses de salida: L/R (PA), Aux 1-4 (Monitores).
             </div>
         </section>
 
+        <!-- PREFERENCIAS -->
         <section id="preferences-screen" class="app-screen">
             <div class="preferences-container">
                 <h2 class="pref-title"><i class="fas fa-cog"></i> Preferencias del Proyecto</h2>
