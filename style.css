@@ -286,46 +286,60 @@ body {
     align-items:center;
 }
 
+/* EL CANVAS ES EL ÁREA DE TRABAJO (800x500) */
 #stage-canvas {
-    position:relative;
-    background-color:var(--color-surface);
-    box-shadow:0 0 10px rgba(0,0,0,0.2);
-    width:100%;
-    max-width:1000px;
-    aspect-ratio:700/495;
-    border:1px solid var(--color-border);
-    user-select:none;
-    cursor:grab;
-    overflow:hidden;
-    background-image:none;
-    background-size:25px 25px;
-    background-position:0 0;
-    transition:background-image 0.2s;
+    position: relative;
+    background-color: var(--color-surface);
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+
+    width: 800px;
+    height: 500px;
+    margin: 0 auto;
+
+    border: 3px solid #222;   /* borde del plano */
+    user-select: none;
+    cursor: grab;
+    overflow: hidden;
+    background-image: none;
+    background-size: 25px 25px;
+    background-position: 0 0;
+    transition: background-image 0.2s;
+	
+}
+/* Líneas de centro en el plano (vertical y horizontal) */
+#stage-canvas::before,
+#stage-canvas::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    background: rgba(0,0,0,0.12);   /* color de la línea, ajusta a gusto */
 }
 
+/* Línea vertical (centro izquierda-derecha) */
+#stage-canvas::before {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    transform: translateX(-0.5px);
+}
+
+/* Línea horizontal (centro arriba-abajo) */
+#stage-canvas::after {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    transform: translateY(-0.5px);
+}
+/* Rejilla solo dentro del plano */
 #stage-canvas.show-grid {
     background-image:
-        linear-gradient(to right, var(--color-border) 1px, transparent 1px),
-        linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
-    opacity:0.8;
+        linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
 }
 
-/* Área segura de trabajo dentro del canvas */
-#stage-work-area {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 800px;          /* ancho seguro */
-    height: 500px;         /* alto seguro */
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-}
-
-/* Los elementos dentro del área de trabajo sí reciben eventos */
-#stage-work-area .stage-element {
-    pointer-events: auto;
-}
-
+/* Placeholder */
 .canvas-placeholder {
     position:absolute;
     top:50%;
@@ -340,69 +354,10 @@ body {
     z-index:1;
 }
 
-#stage-canvas.show-grid::before,
-#stage-canvas.show-grid::after {
-    content: "";
-    position: absolute;
-    pointer-events: none;
-}
-
-#stage-canvas.show-grid::before {
-    left: 50%;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: rgba(0,0,0,0.25);
-    transform: translateX(-50%);
-}
-
-#stage-canvas.show-grid::after {
-    top: 50%;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: rgba(0,0,0,0.25);
-    transform: translateY(-50%);
-}
-
-/* Rulers */
+/* Ocultar reglas métricas */
 #canvas-rulers {
-    position:absolute;
-    left:0;
-    top:0;
-    right:0;
-    bottom:0;
-    pointer-events:none;
-    z-index:2;
+    display: none !important;
 }
-
-.ruler {
-    position:absolute;
-    left:0;
-    height:18px;
-    background: transparent;
-    top:0;
-    border-bottom:1px solid rgba(0,0,0,0.06);
-}
-
-.ruler.bottom-ruler {
-    bottom:0;
-    top:auto;
-    border-top:1px solid rgba(0,0,0,0.06);
-    background: transparent;
-}
-
-.ruler.ticks {
-    position:absolute;
-    top:0;
-    left:0;
-    right:0;
-    pointer-events:none;
-}
-
-.ruler-center-marker-vertical { z-index:3; }
-
-.canvas-center-line { z-index:3; }
 
 /* Config panel */
 #element-config-panel {
@@ -541,11 +496,11 @@ body {
 /* Plano estático en Rider / exportación */
 #stage-canvas-static {
     position: relative;
-    width: 800px;           /* MISMO TAMAÑO QUE #stage-work-area */
+    width: 800px;
     height: 500px;
     margin: 10px auto 0 auto;
     box-sizing: border-box;
-    border: 1px solid #222; /* contorno visible del plano */
+    border: 1px solid #222;
 }
 
 /* Iconos/imágenes en el plano exportado */
@@ -555,7 +510,7 @@ body {
     display: block;
 }
 
-/* Tablas */
+/* ---- TABLAS (igual que tenías, para no acortar nada) ---- */
 .data-table {
     width: 100%;
     border-collapse: collapse;
@@ -582,18 +537,15 @@ body {
     cursor: move;
 }
 
-/* Visual cue when dragging header */
 .data-table thead th.th-dragging {
     opacity: 0.6;
     outline: 2px dashed rgba(0,123,255,0.6);
 }
 
-/* Drop target cue */
 .data-table thead th.col-drag-over {
     background: linear-gradient(180deg, rgba(0,123,255,0.08), rgba(0,123,255,0.02));
 }
 
-/* Celdas */
 .data-table tbody td {
     padding: 10px 12px;
     border: 1px solid var(--color-border);
@@ -603,18 +555,15 @@ body {
     word-wrap: break-word;
 }
 
-/* Alternancia de filas */
 .data-table tbody tr:nth-child(even) td {
     background: rgba(0,0,0,0.02);
 }
 
-/* General */
 .data-table th,
 .data-table td {
     box-sizing: border-box;
 }
 
-/* Inputs dentro de tabla */
 .data-table input[type="text"],
 .data-table input[type="color"],
 .data-table select,
@@ -629,7 +578,6 @@ body {
     box-sizing: border-box;
 }
 
-/* Color box en export */
 .data-table td .color-box {
     display:inline-block;
     width:16px;
@@ -639,7 +587,6 @@ body {
     margin-right:6px;
 }
 
-/* Botón eliminar en tabla */
 .delete-btn {
     padding: 6px 8px;
     background: transparent;
@@ -656,7 +603,6 @@ body {
     border-color: rgba(220,53,69,0.12);
 }
 
-/* Alineaciones */
 .data-table td[data-label="Ch"],
 .data-table td[data-label="Send"] {
     width: 6%;
@@ -675,7 +621,6 @@ body {
     text-align: center;
 }
 
-/* Placeholder contenteditable */
 .data-table td[contenteditable="true"][data-placeholder]:empty:before {
     content: attr(data-placeholder);
     color: #8b8b8b;
@@ -684,7 +629,6 @@ body {
     display: inline-block;
 }
 
-/* Add-column button */
 .add-column-btn {
     background-color: var(--color-primary);
     color: #fff;
@@ -702,7 +646,6 @@ body {
     filter: brightness(0.95);
 }
 
-/* Column header controls */
 .data-table th .col-label {
     vertical-align: middle;
     display: inline-block;
@@ -747,12 +690,6 @@ body {
     border-color: rgba(220,53,69,0.10);
 }
 
-.data-table th .btn i {
-    display: inline-block;
-    font-size: 0.95em;
-}
-
-/* Small toggle button (labels toggle) */
 .small-toggle-btn {
     padding: 6px 10px;
     font-size: 0.88em;
@@ -767,7 +704,7 @@ body {
     color: #fff;
 }
 
-/* Column modal (if used) */
+/* Column modal */
 .column-modal-overlay {
     position: fixed;
     inset: 0;
@@ -857,7 +794,7 @@ body {
     }
 
     .rider-print-wrapper {
-        padding: 6mm;
+        padding: 8mm;
     }
 
     .rider-print-wrapper,
@@ -871,7 +808,6 @@ body {
         break-inside: avoid-page;
     }
 
-    /* Sección del plano (3ª sección del preview): evita cortes y centra */
     .rider-section:nth-of-type(3),
     .rider-section:nth-of-type(3) h3,
     #stage-canvas-static {
@@ -884,15 +820,11 @@ body {
     #stage-canvas-static {
         width: 800px !important;
         height: 500px !important;
-
-        /* Aumenta o reduce el tamaño impreso del plano */
-        transform: scale(1.0);      /* súbelo a 1.0 si quieres todavía más grande */
+        transform: scale(0.95);
         transform-origin: top center;
-
         margin-left: auto;
         margin-right: auto;
         padding-bottom: 0;
-
         border: 1px solid #222;
         box-shadow: none !important;
     }

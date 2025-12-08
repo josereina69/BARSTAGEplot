@@ -1,8 +1,8 @@
-/* script.js - versión con:
-   - Área de trabajo segura (#stage-work-area).
-   - Bloqueo de elementos dentro del área segura.
-   - Plano estático escalado en impresión.
-   - Nota específica bajo el plano en Rider (EDITOR LARGO, se guarda en .barstage).
+/* script.js
+   Versión adaptada:
+   - El propio #stage-canvas (800x500) es el área de trabajo.
+   - No se usa #stage-work-area.
+   - Nota larga bajo el plano (rider-stage-notes) se guarda/carga.
 */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Plano y listas
   const stageCanvas = document.getElementById('stage-canvas');
   const canvasRulers = document.getElementById('canvas-rulers');
-  const workArea = document.getElementById('stage-work-area');   // área segura
+  const workArea = stageCanvas;   // EL CANVAS ES EL ÁREA DE TRABAJO
   const inputListBody = document.getElementById('input-list-body');
   const sendsListBody = document.getElementById('sends-list-body');
 
@@ -47,7 +47,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const gridToggle = document.getElementById('grid-toggle');
   const showLabelCheckbox = document.getElementById('show-label-checkbox');
 
-  // Botón global de etiquetas
   const labelsToggleBtn = document.getElementById('labels-toggle');
 
   // Duplicate / copy / paste
@@ -59,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const riderPreview = document.getElementById('rider-preview');
   const riderTitleInput = document.getElementById('rider-tour-title');
   const riderEditor = document.getElementById('rider-editor');
-  const riderStageNotesInput = document.getElementById('rider-stage-notes'); // NUEVO (div contenteditable)
+  const riderStageNotesInput = document.getElementById('rider-stage-notes');
 
   // Palette custom icon input
   const customIconInput = document.getElementById('custom-icon-input');
@@ -131,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (labelsToggleBtn) {
     labelsToggleBtn.addEventListener('click', () => {
       labelsVisible = !labelsVisible;
-      (workArea || stageCanvas).querySelectorAll('.stage-element')
+      workArea.querySelectorAll('.stage-element')
         .forEach(el => updateElementLabelDisplay(el));
       updateLabelsToggleButtonUI();
       scheduleRiderPreview();
@@ -201,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.setItem('theme', 'night');
       themeToggleButton.innerHTML = '<i class="fas fa-sun"></i> Día/Noche';
     }
-    (workArea || stageCanvas).querySelectorAll('.stage-element').forEach(el => {
+    workArea.querySelectorAll('.stage-element').forEach(el => {
       if (!el.dataset.colorUserSet) el.style.color = '';
       if (!el.dataset.colorUserSetBackground) el.style.backgroundColor = '';
     });
@@ -322,6 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'Percusión': 'Pequeño',
     'Otro': 'Alto'
   };
+
   const STAND_OPTIONS = ['Alto', 'Pequeño', 'Base Redonda', 'Recto', 'Pinza', 'Ninguno'];
 
   function ensureStandDatalist() {
@@ -882,7 +882,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } else {
       if (!standInput.value || standInput.value.trim() === '') {
-        // se deja vacío para placeholder
+        // lo dejamos vacío, placeholder
       }
     }
   }
@@ -1418,7 +1418,7 @@ document.addEventListener('DOMContentLoaded', () => {
       draggedElement.dataset.scale = '1.0';
       draggedElement.dataset.elementId = `element-${iconCounter++}`;
 
-      (workArea || stageCanvas).appendChild(draggedElement);
+      workArea.appendChild(draggedElement);
       setupElementInteractions(draggedElement);
       selectSingleElement(draggedElement, { clearOthers: true });
 
@@ -1529,7 +1529,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // --------- Helper: limitar posición al área segura ---------
+  // --------- Helper: limitar posición al canvas ---------
   function clampToCanvas(el, left, top) {
     const areaRect = workArea.getBoundingClientRect();
     const elW = Math.max(1, el.offsetWidth || 50);
@@ -1909,9 +1909,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (element) {
           element.remove();
           clearAllSelection();
-          if ((workArea || stageCanvas).querySelectorAll('.stage-element').length === 0) {
+          if (workArea.querySelectorAll('.stage-element').length === 0) {
             workArea.innerHTML =
-              '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
+              '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano 800x500)</p>';
           }
           renderRulers();
         }
@@ -2082,7 +2082,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    (workArea || stageCanvas).appendChild(el);
+    workArea.appendChild(el);
     setupElementInteractions(el);
     selectSingleElement(el, { clearOthers: true });
     scheduleRiderPreview();
@@ -2164,9 +2164,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (selectedElements.size > 0) {
         selectedElements.forEach(el => el.remove());
         clearAllSelection();
-        if ((workArea || stageCanvas).querySelectorAll('.stage-element').length === 0) {
+        if (workArea.querySelectorAll('.stage-element').length === 0) {
           workArea.innerHTML =
-            '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
+            '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano 800x500)</p>';
         }
         renderRulers();
       }
@@ -2176,7 +2176,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ---------------- Save / Load / Snapshot ----------------
   function collectStageElements() {
     const elements = [];
-    (workArea || stageCanvas).querySelectorAll('.stage-element').forEach(element => {
+    workArea.querySelectorAll('.stage-element').forEach(element => {
       let widthToSave =
         element.style.width === 'fit-content'
           ? element.offsetWidth
@@ -2292,7 +2292,7 @@ document.addEventListener('DOMContentLoaded', () => {
       rider: {
         title: riderTitleInput?.value || '',
         notes: riderEditor?.innerHTML || '',
-        stageNote: riderStageNotesInput?.innerHTML || ''   // NUEVO: HTML largo
+        stageNote: riderStageNotesInput?.innerHTML || ''
       },
       customIcons: Array.from(customIcons.entries()),
       inputExtraColumns: inputExtraColumns,
@@ -2521,7 +2521,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function loadStageElements(elementsData) {
     if (!stageCanvas) return;
     workArea.innerHTML =
-      '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
+      '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano 800x500)</p>';
     if (!canvasRulers.parentElement) stageCanvas.appendChild(canvasRulers);
     const placeholder = workArea.querySelector('.canvas-placeholder');
 
@@ -2593,7 +2593,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         element.dataset.elementId = `element-${iconCounter++}`;
-        (workArea || stageCanvas).appendChild(element);
+        workArea.appendChild(element);
         setupElementInteractions(element);
       });
     }
@@ -2689,7 +2689,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function buildStaticStageElement(hideGrid = true) {
-    const original = document.getElementById('stage-work-area');
+    const original = document.getElementById('stage-canvas'); // clonamos el canvas completo
     if (!original) return document.createElement('div');
 
     const parentRect = original.getBoundingClientRect();
@@ -2781,7 +2781,7 @@ document.addEventListener('DOMContentLoaded', () => {
     editorSection.innerHTML = riderEditor?.innerHTML || '';
     riderPreview.appendChild(editorSection);
 
-    // ---- Plano + nota bajo el plano (texto largo) ----
+    // ---- Plano + nota bajo el plano ----
     const stageWrap = document.createElement('div');
     stageWrap.className = 'rider-section';
     const hStage = document.createElement('h3');
@@ -2791,7 +2791,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const staticStage = buildStaticStageElement(true);
     stageWrap.appendChild(staticStage);
 
-    // Nota bajo el plano: usamos HTML del editor largo
     if (riderStageNotesInput) {
       const html = riderStageNotesInput.innerHTML.trim();
       const text = riderStageNotesInput.textContent.trim();
@@ -3053,7 +3052,7 @@ ${sendsHTML}
     projectConfig = {};
     if (workArea) {
       workArea.innerHTML =
-        '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano Proporcional A4)</p>';
+        '<p class="canvas-placeholder">Arrastra y suelta elementos aquí. (Plano 800x500)</p>';
     }
     iconCounter = 1;
     if (inputListBody) inputListBody.innerHTML = '';
@@ -3092,102 +3091,7 @@ ${sendsHTML}
   function renderRulers() {
     if (!canvasRulers || !stageCanvas) return;
     canvasRulers.innerHTML = '';
-    const rect = stageCanvas.getBoundingClientRect();
-    const w = rect.width || 800;
-
-    const { w: stageMetersWidth } = parseStageSize();
-    const pxPerMeter = (w / Math.max(0.1, stageMetersWidth));
-
-    const topRuler = document.createElement('div');
-    topRuler.className = 'ruler top-ruler';
-    topRuler.style.width = `${w}px`;
-    topRuler.style.left = '0';
-    topRuler.style.top = '0';
-    topRuler.style.position = 'absolute';
-    topRuler.style.height = '18px';
-    topRuler.style.pointerEvents = 'none';
-
-    const topTicks = document.createElement('div');
-    topTicks.className = 'ruler ticks';
-    topRuler.appendChild(topTicks);
-
-    const bottomRuler = document.createElement('div');
-    bottomRuler.className = 'ruler bottom-ruler';
-    bottomRuler.style.width = `${w}px`;
-    bottomRuler.style.left = '0';
-    bottomRuler.style.bottom = '0';
-    bottomRuler.style.position = 'absolute';
-    bottomRuler.style.height = '18px';
-    bottomRuler.style.pointerEvents = 'none';
-
-    const bottomTicks = document.createElement('div');
-    bottomTicks.className = 'ruler ticks';
-    bottomRuler.appendChild(bottomTicks);
-
-    const centerLineV = document.createElement('div');
-    centerLineV.className = 'ruler-center-marker-vertical canvas-center-line';
-    centerLineV.style.position = 'absolute';
-    centerLineV.style.left = '50%';
-    centerLineV.style.top = '0';
-    centerLineV.style.bottom = '0';
-    centerLineV.style.width = '1px';
-    centerLineV.style.background = 'rgba(0,0,0,0.08)';
-    centerLineV.style.pointerEvents = 'none';
-
-    const centerLineH = document.createElement('div');
-    centerLineH.className = 'canvas-center-line';
-    centerLineH.style.position = 'absolute';
-    centerLineH.style.top = '50%';
-    centerLineH.style.left = '0';
-    centerLineH.style.right = '0';
-    centerLineH.style.height = '1px';
-    centerLineH.style.background = 'rgba(0,0,0,0.08)';
-    centerLineH.style.pointerEvents = 'none';
-
-    const desiredPxInterval = 50;
-    const metersPerTick =
-      Math.max(0.1, Math.round((desiredPxInterval / pxPerMeter) * 10) / 10);
-    const pxInterval = metersPerTick * pxPerMeter;
-
-    const totalTicks = Math.ceil(w / pxInterval);
-    for (let i = 0; i <= totalTicks; i++) {
-      const left = i * pxInterval;
-      const tick = document.createElement('div');
-      tick.style.position = 'absolute';
-      tick.style.left = `${left}px`;
-      tick.style.top = '0';
-      tick.style.height = '100%';
-      tick.style.width = '1px';
-      tick.style.background = 'rgba(0,0,0,0.06)';
-      tick.style.transform = 'translateX(-0.5px)';
-      tick.style.pointerEvents = 'none';
-
-      const meters = (left / pxPerMeter);
-      if (Math.abs(Math.round(meters) - meters) < 0.01) {
-        const lbl = document.createElement('div');
-        lbl.textContent = `${Math.round(meters)} m`;
-        lbl.style.position = 'absolute';
-        lbl.style.left = `${left + 2}px`;
-        lbl.style.top = '0';
-        lbl.style.fontSize = '10px';
-        lbl.style.color = 'rgba(0,0,0,0.6)';
-        lbl.style.pointerEvents = 'none';
-        topRuler.appendChild(lbl);
-
-        const lbl2 = lbl.cloneNode(true);
-        lbl2.style.top = '';
-        lbl2.style.bottom = '0';
-        bottomRuler.appendChild(lbl2);
-      }
-
-      topTicks.appendChild(tick.cloneNode(true));
-      bottomTicks.appendChild(tick.cloneNode(true));
-    }
-
-    canvasRulers.appendChild(topRuler);
-    canvasRulers.appendChild(bottomRuler);
-    canvasRulers.appendChild(centerLineV);
-    canvasRulers.appendChild(centerLineH);
+    // Como ahora no usamos reglas visibles, no dibujamos nada
   }
 
   window.addEventListener('resize', () => {
@@ -3229,9 +3133,6 @@ ${sendsHTML}
     });
   }
 
-  // ---------------- Rulers initial render ----------------
-  renderRulers();
-
   // ---------------- Preferences modal ----------------
   if (preferencesBtn) {
     preferencesBtn.addEventListener('click', () => {
@@ -3270,6 +3171,7 @@ ${sendsHTML}
     });
   }
 
+  // Render inicial
   setTimeout(() => {
     renderRulers();
     scheduleRiderPreview();
