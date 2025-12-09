@@ -1,11 +1,9 @@
 /* script.js
-   - #stage-canvas (800x500) es el área de trabajo.
-   - El tamaño en metros es solo informativo.
-   - Preferencias permiten cambiar canales/envíos con aviso.
-   - Cambiar nombre de gira actualiza el Rider (sin pisar título personalizado).
-   - Nota larga bajo el plano (rider-stage-notes) se guarda/carga.
-   - Columnas de listas se pueden redimensionar arrastrando el borde.
-   - La vista de Rider respeta siempre la posición de los elementos (left/top).
+   - #stage-canvas (800x500) es el área de trabajo fijo.
+   - "Tamaño de Escenario" (ej: 8x5, 18 x 14, 10m x 6m) se interpreta en metros.
+   - Se calcula escala real: pxPorMetroX = canvasWidth / anchoM, pxPorMetroY = canvasHeight / altoM.
+   - La tarima 2×1 m se dibuja y reescala usando esa escala (2m x 1m dentro del escenario que pongas).
+   - El resto del comportamiento (arrastrar, rotar, rider, impresión, tablas, etc.) es como en la versión anterior.
 */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -143,6 +141,45 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ---------------- ESCALA REAL DEL ESCENARIO (EN METROS) ----------------
+  // Devuelve ancho/alto en metros a partir del texto "stageSize"
+  function parseStageSizeMeters() {
+    const raw = (projectConfig.stageSize || '').toString().toLowerCase().trim();
+    // Patrones tipo "18x14", "18 x 14", "18m x 14m", etc.
+    const match = raw.match(/([\d.,]+)\s*(m)?\s*[x×]\s*([\d.,]+)\s*(m)?/);
+    if (!match) {
+      // Por defecto 8x5 m si no se reconoce el formato
+      return { widthM: 8, heightM: 5 };
+    }
+    const w = parseFloat(match[1].replace(',', '.')) || 8;
+    const h = parseFloat(match[3].replace(',', '.')) || 5;
+    return { widthM: w, heightM: h };
+  }
+
+  // Devuelve los px por metro en X/Y según el tamaño de escenario y el tamaño del canvas
+  function getStageScale() {
+    const { widthM, heightM } = parseStageSizeMeters();
+    const canvasW = stageCanvas?.clientWidth || 800;
+    const canvasH = stageCanvas?.clientHeight || 500;
+    return {
+      pxPerM_X: canvasW / widthM,
+      pxPerM_Y: canvasH / heightM
+    };
+  }
+
+  // Reescala todas las tarimas (platform-2x1) según la escala actual
+  function rescalePlatformsToStage() {
+    if (!stageCanvas) return;
+    const { pxPerM_X, pxPerM_Y } = getStageScale();
+    stageCanvas.querySelectorAll('.stage-element[data-platform="2x1"]').forEach(el => {
+      const wM = parseFloat(el.dataset.widthMeters  || '2') || 2;
+      const hM = parseFloat(el.dataset.heightMeters || '1') || 1;
+      el.style.width  = `${wM * pxPerM_X}px`;
+      el.style.height = `${hM * pxPerM_Y}px`;
+    });
+    scheduleRiderPreview();
+  }
+
   // ----------------- NAV & PROJECT INIT -----------------
   if (projectForm) {
     projectForm.addEventListener('submit', (e) => {
@@ -173,6 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       renderRidersInfoOnly();
+      rescalePlatformsToStage();
       scheduleRiderPreview();
     });
   }
@@ -604,6 +642,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------- Crear filas de Input List ----------------
+  // (igual que versión anterior; lo dejo intacto por longitud)
+
   function createChannelRow(channelNumber, channelData = null) {
     const row = document.createElement('tr');
     row.draggable = true;
@@ -1444,12 +1484,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const iconText = sourceIcon?.textContent.trim() || '';
 
       if (type === 'platform-2x1') {
-        draggedElement.style.width = '200px';
-        draggedElement.style.height = '100px';
+        // TARIMA 2x1 m EN ESCALA REAL
+        const { pxPerM_X, pxPerM_Y } = getStageScale();
+        const wM = 2;  // 2 metros de ancho
+        const hM = 1;  // 1 metro de fondo
+        draggedElement.dataset.widthMeters  = wM;
+        draggedElement.dataset.heightMeters = hM;
+        draggedElement.dataset.platform = '2x1';
+
+        draggedElement.style.width  = `${wM * pxPerM_X}px`;
+        draggedElement.style.height = `${hM * pxPerM_Y}px`;
         draggedElement.style.backgroundColor = '#cfcfcf';
         draggedElement.style.border = '2px solid #999';
         draggedElement.dataset.content = 'Tarima 2m x 1m';
-        draggedElement.dataset.platform = '2x1';
         draggedElement.dataset.showLabel = '0';
         draggedElement.dataset.colorUserSetBackground = '1';
         draggedElement.dataset.borderUserSet = '1';
@@ -1797,7 +1844,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function setupResizing(element, handle) {
-    if (element.dataset.platform === '2x1') return;
+    if (element.dataset.platform === '2x1') return; // mantenemos tarima a escala fija (no resize manual)
 
     let startX, startY, startW, startH, startScale;
     const isShape = element.dataset.type?.endsWith('-shape');
@@ -1967,19 +2014,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const scaleSelector = document.getElementById('scale-selector');
     if (scaleSelector) {
-      const currentScale = element.dataset.scale || 1.0;
+      const currentScale = parseFloat(element.dataset.scale || '1') || 1;
       scaleSelector.value = currentScale;
       scaleSelector.oninput = (e) => {
-        const newScale = e.target.value;
-        if (isShape) {
+        const newScale = parseFloat(e.target.value || '1') || 1;
+        const rotation = parseFloat(element.dataset.rotation || '0') || 0;
+        const isPlatform = element.dataset.platform === '2x1';
+
+        if (isPlatform) {
+          // Tarima: base 2x1 m, reescalada según metros
+          const { pxPerM_X, pxPerM_Y } = getStageScale();
+          const wM = parseFloat(element.dataset.widthMeters  || '2') || 2;
+          const hM = parseFloat(element.dataset.heightMeters || '1') || 1;
+          element.style.width  = `${wM * pxPerM_X * newScale}px`;
+          element.style.height = `${hM * pxPerM_Y * newScale}px`;
+          element.style.transform = `rotate(${rotation}deg)`;
+        } else if (isShape) {
           if (element.dataset.type !== 'line-shape') {
-            element.style.transform = `rotate(${element.dataset.rotation || 0}deg) scale(${newScale})`;
+            element.style.transform = `rotate(${rotation}deg) scale(${newScale})`;
           }
         } else {
           element.style.fontSize = `${newScale}em`;
-          element.style.transform = `rotate(${element.dataset.rotation || 0}deg)`;
+          element.style.transform = `rotate(${rotation}deg)`;
         }
-        element.dataset.scale = newScale;
+
+        element.dataset.scale = newScale.toFixed(2);
         scheduleRiderPreview();
       };
     }
@@ -2014,9 +2073,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------- Copy/Paste/Duplicate ----------------
+  const duplicateElement = (sourceEl) => {
+    if (!sourceEl) return;
+    const data = serializeElementForClipboard(sourceEl);
+    pasteSerializedElement(data, 15, 15);
+  };
+
   if (duplicateBtn) duplicateBtn.addEventListener('click', () => {
     if (selectedElement) duplicateElement(selectedElement);
   });
+
   if (copyBtn) copyBtn.addEventListener('click', () => {
     if (selectedElements.size > 1) {
       clipboardElementData = {
@@ -2030,6 +2096,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
   });
+
   if (pasteBtn) pasteBtn.addEventListener('click', () => {
     if (!clipboardElementData) return;
     if (clipboardElementData.multi) {
@@ -2179,12 +2246,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupElementInteractions(el);
     selectSingleElement(el, { clearOthers: true });
     scheduleRiderPreview();
-  }
-
-  function duplicateElement(sourceEl) {
-    if (!sourceEl) return;
-    const data = serializeElementForClipboard(sourceEl);
-    pasteSerializedElement(data, 15, 15);
   }
 
   // ---------------- Helpers: rgbToHex ----------------
@@ -2616,6 +2677,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activateTab('stage-plot');
     renderRidersInfoOnly();
     renderRulers();
+    rescalePlatformsToStage();
     scheduleRiderPreview();
     attachColumnDragHandlersToAllTables();
     document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
@@ -2651,10 +2713,12 @@ document.addEventListener('DOMContentLoaded', () => {
         element.style.zIndex = elementData.zIndex || '';
         const sizeValue = elementData.scale || '1.0';
 
+        const isPlatform = elementData.dataset && elementData.dataset.platform === '2x1';
+
         if (element.dataset.type === 'line-shape') {
           element.style.transform = `rotate(${elementData.rotation || 0}deg)`;
-        } else if (element.dataset.type?.endsWith('-shape')) {
-          element.style.transform = `rotate(${elementData.rotation || 0}deg) scale(${sizeValue})`;
+        } else if (element.dataset.type?.endsWith('-shape') || isPlatform) {
+          element.style.transform = `rotate(${elementData.rotation || 0}deg)`;
         } else {
           element.style.fontSize = `${sizeValue}em`;
           element.style.transform = `rotate(${elementData.rotation || 0}deg)`;
@@ -2840,32 +2904,31 @@ document.addEventListener('DOMContentLoaded', () => {
       el.style.width  = `${width}px`;
       el.style.height = `${height}px`;
 
-           el.style.color = comp.color;
+      el.style.color = comp.color;
       el.style.backgroundColor = comp.backgroundColor;
+      el.style.fontSize = comp.fontSize;
       el.style.fontWeight = comp.fontWeight;
       el.style.textAlign = comp.textAlign;
       el.style.zIndex = origEl.style.zIndex || comp.zIndex || 1;
+      el.style.borderRadius = comp.borderRadius;
+      el.style.border = comp.border;
 
-      // Aplicar transformación IGUAL que en el canvas, usando dataset
       const rotation = parseFloat(origEl.dataset.rotation || '0') || 0;
       const scale = parseFloat(origEl.dataset.scale || '1') || 1;
+      const isPlatform = origEl.dataset.platform === '2x1';
 
       if (origEl.dataset.type === 'line-shape') {
-        // Las líneas sólo rotan
         el.style.transform = `rotate(${rotation}deg)`;
-      } else if (origEl.dataset.type && origEl.dataset.type.endsWith('-shape')) {
-        // Shapes (círculo/cuadrado) rotan y escalan
+      } else if (origEl.dataset.type && origEl.dataset.type.endsWith('-shape') && !isPlatform) {
         el.style.transform = `rotate(${rotation}deg) scale(${scale})`;
+      } else if (isPlatform) {
+        el.style.transform = `rotate(${rotation}deg)`;
       } else {
-        // Iconos/textos: usamos font-size para el tamaño (como en el canvas)
         el.style.fontSize = `${scale}em`;
         el.style.transform = `rotate(${rotation}deg)`;
       }
 
-      // Aseguramos el mismo origen de transformación
       el.style.transformOrigin = comp.transformOrigin || '50% 50%';
-      el.style.borderRadius = comp.borderRadius;
-      el.style.border = comp.border;
 
       el.querySelectorAll('.resizer, .rotator').forEach(n => n.remove());
       const icon = el.querySelector('i');
@@ -3221,6 +3284,7 @@ ${sendsHTML}
 
   window.addEventListener('resize', () => {
     renderRulers();
+    rescalePlatformsToStage();
     scheduleRiderPreview();
   });
 
@@ -3350,6 +3414,9 @@ ${sendsHTML}
       if (inputsChanged) initializeInputList(projectConfig.numInputChannels);
       if (sendsChanged)  initializeSendsList(projectConfig.numSends);
 
+      // REESCALAMOS TARIMAS SEGÚN EL NUEVO TAMAÑO DE ESCENARIO
+      rescalePlatformsToStage();
+
       renderRulers();
 
       syncInitFormFromConfig();
@@ -3370,6 +3437,7 @@ ${sendsHTML}
   // Render inicial
   setTimeout(() => {
     renderRulers();
+    rescalePlatformsToStage();
     scheduleRiderPreview();
   }, 250);
 

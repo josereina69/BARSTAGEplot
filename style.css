@@ -844,3 +844,6 @@ body {
 .data-table thead th {
     position: relative;
 }
+.selection-rect {
+  box-sizing: border-box;
+}
