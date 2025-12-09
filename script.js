@@ -4,6 +4,8 @@
    - Preferencias permiten cambiar canales/envíos con aviso.
    - Cambiar nombre de gira actualiza el Rider (sin pisar título personalizado).
    - Nota larga bajo el plano (rider-stage-notes) se guarda/carga.
+   - Columnas de listas se pueden redimensionar arrastrando el borde.
+   - La vista de Rider respeta siempre la posición de los elementos (left/top).
 */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -101,6 +103,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initialPositions: null
   };
 
+  // Column resize state
+  let colResizeState = null;
+
   // ---------- Theme initialization ----------
   initTheme();
   body.classList.add('init-screen');
@@ -151,24 +156,19 @@ document.addEventListener('DOMContentLoaded', () => {
         numSends: parseInt(document.getElementById('sends-count')?.value || 0)
       };
 
-      // Actualizar cabecera
       updateProjectInfoDisplay(projectConfig);
 
-      // Crear tablas
       initializeInputList(projectConfig.numInputChannels);
       initializeSendsList(projectConfig.numSends);
 
-      // Mostrar nav y plano
       if (projectInitScreen) projectInitScreen.classList.remove('active');
       if (mainNav) mainNav.style.display = 'flex';
       body.classList.remove('init-screen');
       activateTab('stage-plot');
 
-      // Sincronizar formulario de preferencias con datos iniciales
       syncPreferencesFormFromConfig();
 
-      // Sincronizar título del rider con nombre de gira (si todavía no hay uno)
-      if (riderTitleInput) {
+      if (riderTitleInput && !riderTitleInput.value.trim()) {
         riderTitleInput.value = projectConfig.tourName || '';
       }
 
@@ -381,6 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
     targetArr.push(col);
     if (!skipDOM) addColumnToTableDOM(col, forTable);
     attachColumnDragHandlersToAllTables();
+    document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
     scheduleRiderPreview();
     return true;
   }
@@ -471,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       scheduleRiderPreview();
       attachColumnDragHandlersToAllTables();
+      document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
     });
 
     btnDelete.addEventListener('click', () => {
@@ -491,9 +493,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (forTable === 'input') updateChannelNumbers(); else updateSendNumbers();
       scheduleRiderPreview();
       attachColumnDragHandlersToAllTables();
+      document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
     });
 
     attachColumnDragHandlersToAllTables();
+    document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
   }
 
   function createCellForColumn(colDef, defaultValue = null) {
@@ -896,7 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } else {
       if (!standInput.value || standInput.value.trim() === '') {
-        // lo dejamos vacío, placeholder
+        // placeholder
       }
     }
   }
@@ -913,6 +917,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateChannelNumbers();
     scheduleRiderPreview();
     attachColumnDragHandlersToAllTables();
+    document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
   }
 
   function loadInputList(channelsData) {
@@ -931,6 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateChannelNumbers();
     scheduleRiderPreview();
     attachColumnDragHandlersToAllTables();
+    document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
   }
 
   // ---------------- Crear filas de Sends ----------------
@@ -1027,6 +1033,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSendNumbers();
     scheduleRiderPreview();
     attachColumnDragHandlersToAllTables();
+    document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
   }
 
   function loadSendsList(sendsData) {
@@ -1045,6 +1052,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSendNumbers();
     scheduleRiderPreview();
     attachColumnDragHandlersToAllTables();
+    document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
   }
 
   if (addChannelBtn) {
@@ -1312,6 +1320,77 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     attachColumnDragHandlersToTable(table);
+    document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
+    scheduleRiderPreview();
+  }
+
+  // ---------------- Column resize (redimensionar ancho) ----------------
+  function addResizeHandlesToTable(table) {
+    if (!table) return;
+    const thead = table.querySelector('thead');
+    if (!thead) return;
+    const headerRow = thead.querySelector('tr');
+    if (!headerRow) return;
+
+    const ths = Array.from(headerRow.children);
+
+    ths.forEach((th, index) => {
+      if (th.querySelector('.th-resize-handle')) return;
+
+      const handle = document.createElement('div');
+      handle.className = 'th-resize-handle';
+      th.appendChild(handle);
+
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startX = e.clientX;
+        const startWidth = th.offsetWidth;
+
+        colResizeState = {
+          table,
+          th,
+          startX,
+          startWidth,
+          colIndex: index
+        };
+
+        document.addEventListener('mousemove', onColResizeMouseMove);
+        document.addEventListener('mouseup', onColResizeMouseUp);
+      });
+    });
+  }
+
+  function onColResizeMouseMove(e) {
+    if (!colResizeState) return;
+    const dx = e.clientX - colResizeState.startX;
+    let newWidth = colResizeState.startWidth + dx;
+    const minWidth = 40;
+    newWidth = Math.max(minWidth, newWidth);
+
+    const { table, colIndex } = colResizeState;
+    const ths = table.querySelectorAll('thead th');
+    if (!ths[colIndex]) return;
+
+    ths[colIndex].style.width = newWidth + 'px';
+    ths[colIndex].style.minWidth = newWidth + 'px';
+    ths[colIndex].style.maxWidth = newWidth + 'px';
+
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(tr => {
+      const tds = tr.children;
+      if (!tds[colIndex]) return;
+      tds[colIndex].style.width = newWidth + 'px';
+      tds[colIndex].style.minWidth = newWidth + 'px';
+      tds[colIndex].style.maxWidth = newWidth + 'px';
+    });
+  }
+
+  function onColResizeMouseUp() {
+    if (!colResizeState) return;
+    document.removeEventListener('mousemove', onColResizeMouseMove);
+    document.removeEventListener('mouseup', onColResizeMouseUp);
+    colResizeState = null;
     scheduleRiderPreview();
   }
 
@@ -1426,7 +1505,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       draggedElement.style.left = `${x}px`;
-      draggedElement.style.top = `${y}px}`;
+      draggedElement.style.top = `${y}px`;
       draggedElement.style.zIndex = '10';
       draggedElement.dataset.rotation = '0';
       draggedElement.dataset.scale = '1.0';
@@ -2526,7 +2605,6 @@ document.addEventListener('DOMContentLoaded', () => {
     syncPreferencesFormFromConfig();
     syncInitFormFromConfig();
 
-    // También sincronizamos el título del rider si no se ha personalizado antes
     if (riderTitleInput) {
       const currentRiderTitle = riderTitleInput.value.trim();
       if (!currentRiderTitle) riderTitleInput.value = projectConfig.tourName || '';
@@ -2540,6 +2618,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderRulers();
     scheduleRiderPreview();
     attachColumnDragHandlersToAllTables();
+    document.querySelectorAll('.data-table').forEach(tbl => addResizeHandlesToTable(tbl));
   }
 
   function loadStageElements(elementsData) {
@@ -2658,6 +2737,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const nth = document.createElement('th');
         const label = (th.dataset && th.dataset.label) ? th.dataset.label : th.textContent.trim();
         nth.textContent = label;
+        if (th.style.width) {
+          nth.style.width = th.style.width;
+          nth.style.minWidth = th.style.minWidth;
+          nth.style.maxWidth = th.style.maxWidth;
+        }
         tr.appendChild(nth);
       });
       newThead.appendChild(tr);
@@ -2703,6 +2787,12 @@ document.addEventListener('DOMContentLoaded', () => {
             newTd.style.backgroundColor = computed;
           }
 
+          if (td.style.width) {
+            newTd.style.width = td.style.width;
+            newTd.style.minWidth = td.style.minWidth;
+            newTd.style.maxWidth = td.style.maxWidth;
+          }
+
           newRow.appendChild(newTd);
         });
         newTbody.appendChild(newRow);
@@ -2716,12 +2806,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const original = document.getElementById('stage-canvas');
     if (!original) return document.createElement('div');
 
-    const parentRect = original.getBoundingClientRect();
     const container = document.createElement('div');
     container.id = 'stage-canvas-static';
     container.style.position = 'relative';
-    const w = parentRect.width || 800;
-    const h = parentRect.height || 500;
+    const w = original.clientWidth || 800;
+    const h = original.clientHeight || 500;
     container.style.width = `${w}px`;
     container.style.height = `${h}px`;
     container.style.boxShadow = 'none';
@@ -2729,14 +2818,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const computedRoot = getComputedStyle(document.documentElement);
     const surface = computedRoot.getPropertyValue('--color-surface') || '#ffffff';
-    container.style.background = hideGrid ? surface : (surface + ' url()');
-    container.style.backgroundImage = hideGrid ? 'none' : container.style.backgroundImage;
+    container.style.background = surface;
+    container.style.backgroundImage = 'none';
 
     original.querySelectorAll('.stage-element').forEach(origEl => {
       const comp = window.getComputedStyle(origEl);
-      const rect = origEl.getBoundingClientRect();
-      const left = parseFloat(origEl.style.left) || (rect.left - parentRect.left);
-      const top = parseFloat(origEl.style.top) || (rect.top - parentRect.top);
+
+      const left = parseFloat(origEl.style.left) || 0;
+      const top  = parseFloat(origEl.style.top)  || 0;
 
       const el = document.createElement('div');
       el.className = 'stage-element';
@@ -2744,20 +2833,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
       el.style.position = 'absolute';
       el.style.left = `${left}px`;
-      el.style.top = `${top}px`;
-      el.style.width = `${(parseFloat(origEl.style.width) || rect.width)}px`;
-      el.style.height = `${(parseFloat(origEl.style.height) || rect.height)}px`;
+      el.style.top  = `${top}px`;
 
-      el.style.color = comp.color;
+      const width  = parseFloat(origEl.style.width)  || origEl.offsetWidth;
+      const height = parseFloat(origEl.style.height) || origEl.offsetHeight;
+      el.style.width  = `${width}px`;
+      el.style.height = `${height}px`;
+
+           el.style.color = comp.color;
       el.style.backgroundColor = comp.backgroundColor;
-      el.style.fontSize = comp.fontSize;
       el.style.fontWeight = comp.fontWeight;
       el.style.textAlign = comp.textAlign;
-      if (comp.transform && comp.transform !== 'none') {
-        el.style.transform = comp.transform;
-        el.style.transformOrigin = comp.transformOrigin;
-      }
       el.style.zIndex = origEl.style.zIndex || comp.zIndex || 1;
+
+      // Aplicar transformación IGUAL que en el canvas, usando dataset
+      const rotation = parseFloat(origEl.dataset.rotation || '0') || 0;
+      const scale = parseFloat(origEl.dataset.scale || '1') || 1;
+
+      if (origEl.dataset.type === 'line-shape') {
+        // Las líneas sólo rotan
+        el.style.transform = `rotate(${rotation}deg)`;
+      } else if (origEl.dataset.type && origEl.dataset.type.endsWith('-shape')) {
+        // Shapes (círculo/cuadrado) rotan y escalan
+        el.style.transform = `rotate(${rotation}deg) scale(${scale})`;
+      } else {
+        // Iconos/textos: usamos font-size para el tamaño (como en el canvas)
+        el.style.fontSize = `${scale}em`;
+        el.style.transform = `rotate(${rotation}deg)`;
+      }
+
+      // Aseguramos el mismo origen de transformación
+      el.style.transformOrigin = comp.transformOrigin || '50% 50%';
       el.style.borderRadius = comp.borderRadius;
       el.style.border = comp.border;
 
@@ -2788,7 +2894,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderRidersInfoOnly() {
-    // por si en el futuro muestras info de metros aquí, ahora mismo no hace nada especial
+    // Por ahora solo mostramos tamaño de escenario en renderRiderPreview
   }
 
   function renderRiderPreview() {
@@ -2917,7 +3023,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-   // ---------------- Export / Print helpers ----------------
+  // ---------------- Export / Print helpers ----------------
   function exportRiderAsHTML() {
     return new Promise((resolve) => {
       renderRiderPreview();
@@ -3063,7 +3169,7 @@ ${sendsHTML}
     URL.revokeObjectURL(url);
   }
 
-  // ---------------- Helpers ----------------
+  // ---------------- Helpers finales ----------------
   function escapeHtml(s) {
     if (!s) return '';
     return s
@@ -3108,7 +3214,6 @@ ${sendsHTML}
     scheduleRiderPreview();
   }
 
-  // Como el tamaño en metros es solo informativo, renderRulers no dibuja nada especial
   function renderRulers() {
     if (!canvasRulers) return;
     canvasRulers.innerHTML = '';
@@ -3247,10 +3352,8 @@ ${sendsHTML}
 
       renderRulers();
 
-      // sincronizar inicio
       syncInitFormFromConfig();
 
-      // sincronizar título de Rider si no está personalizado
       if (riderTitleInput) {
         const currentRiderTitle = riderTitleInput.value.trim();
         if (!currentRiderTitle || currentRiderTitle === oldTour) {

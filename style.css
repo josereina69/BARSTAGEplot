@@ -828,3 +828,19 @@ body {
         box-shadow: none !important;
     }
 }
+/* Área de agarre para redimensionar columnas */
+.th-resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 6px;               /* grosor de la zona clicable */
+    height: 100%;
+    cursor: col-resize;
+    user-select: none;
+    z-index: 2;
+}
+
+/* Asegurar que los TH son position:relative para el handle */
+.data-table thead th {
+    position: relative;
+}
