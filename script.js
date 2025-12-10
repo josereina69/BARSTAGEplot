@@ -3,7 +3,8 @@
    - "Tamaño de Escenario" (ej: 8x5, 18 x 14, 10m x 6m) se interpreta en metros.
    - Se calcula escala real: pxPorMetroX = canvasWidth / anchoM, pxPorMetroY = canvasHeight / altoM.
    - La tarima 2×1 m se dibuja y reescala usando esa escala (2m x 1m dentro del escenario que pongas).
-   - El resto del comportamiento (arrastrar, rotar, rider, impresión, tablas, etc.) es como en la versión anterior.
+   - Línea de cota por dos clics, con handles en ambos extremos para estirar.
+   - Bloqueo de elementos (no mover / no borrar / no redimensionar / no rotar).
 */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -47,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const deleteElementBtn = document.getElementById('delete-element-btn');
   const gridToggle = document.getElementById('grid-toggle');
   const showLabelCheckbox = document.getElementById('show-label-checkbox');
+  const lockElementCheckbox = document.getElementById('lock-element-checkbox'); // debe existir en HTML para usarlo
 
   const labelsToggleBtn = document.getElementById('labels-toggle');
 
@@ -104,12 +106,32 @@ document.addEventListener('DOMContentLoaded', () => {
   // Column resize state
   let colResizeState = null;
 
+  // Modo creación de línea de cota por dos clics
+  let pendingDimension = {
+    active: false,
+    start: null,   // {x,y}
+    typeSelected: false
+  };
+
+  // Estado de arrastre de handles de cota
+  const dimensionDrag = {
+    active: false,
+    element: null,
+    handle: null, // 'start' o 'end'
+    startMouse: { x: 0, y: 0 },
+    startStart: { x: 0, y: 0 },
+    startEnd: { x: 0, y: 0 }
+  };
+
   // ---------- Theme initialization ----------
   initTheme();
   body.classList.add('init-screen');
   if (projectInitScreen) projectInitScreen.classList.add('active');
 
-  if (stageCanvas) stageCanvas.classList.add('show-grid');
+  if (stageCanvas) {
+    stageCanvas.classList.add('show-grid');
+    stageCanvas.classList.add('cursor-normal'); // cursor normal por defecto
+  }
   if (gridToggle) {
     gridToggle.addEventListener('change', () => {
       if (gridToggle.checked) stageCanvas.classList.add('show-grid');
@@ -142,13 +164,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------- ESCALA REAL DEL ESCENARIO (EN METROS) ----------------
-  // Devuelve ancho/alto en metros a partir del texto "stageSize"
   function parseStageSizeMeters() {
     const raw = (projectConfig.stageSize || '').toString().toLowerCase().trim();
-    // Patrones tipo "18x14", "18 x 14", "18m x 14m", etc.
     const match = raw.match(/([\d.,]+)\s*(m)?\s*[x×]\s*([\d.,]+)\s*(m)?/);
     if (!match) {
-      // Por defecto 8x5 m si no se reconoce el formato
       return { widthM: 8, heightM: 5 };
     }
     const w = parseFloat(match[1].replace(',', '.')) || 8;
@@ -156,7 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return { widthM: w, heightM: h };
   }
 
-  // Devuelve los px por metro en X/Y según el tamaño de escenario y el tamaño del canvas
   function getStageScale() {
     const { widthM, heightM } = parseStageSizeMeters();
     const canvasW = stageCanvas?.clientWidth || 800;
@@ -167,7 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // Reescala todas las tarimas (platform-2x1) según la escala actual
   function rescalePlatformsToStage() {
     if (!stageCanvas) return;
     const { pxPerM_X, pxPerM_Y } = getStageScale();
@@ -231,6 +248,10 @@ document.addEventListener('DOMContentLoaded', () => {
         targetScreen.style.padding = '20px';
       }
       if (tabId === 'rider-menu') renderRiderPreview();
+
+      if (tabId !== 'stage-plot') {
+        resetDimensionMode();
+      }
     }
   }
 
@@ -642,8 +663,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---------------- Crear filas de Input List ----------------
-  // (igual que versión anterior; lo dejo intacto por longitud)
-
   function createChannelRow(channelNumber, channelData = null) {
     const row = document.createElement('tr');
     row.draggable = true;
@@ -1455,11 +1474,39 @@ document.addEventListener('DOMContentLoaded', () => {
           e.dataTransfer.setData('text/plain', icon.dataset.type);
           e.dataTransfer.effectAllowed = 'move';
         });
+
+        if (icon.dataset.type === 'dimension-line') {
+          icon.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            pendingDimension.active = true;
+            pendingDimension.start = null;
+            pendingDimension.typeSelected = true;
+
+            if (stageCanvas) {
+              stageCanvas.classList.remove('cursor-normal');
+              stageCanvas.classList.add('cursor-crosshair');
+            }
+
+            alert('Modo línea de cota activo: haz clic en el punto inicial y luego en el punto final en el plano.');
+          });
+        }
+
         icon._hasHandler = true;
       }
     });
   }
   attachPaletteDragHandlers();
+
+  function resetDimensionMode() {
+    pendingDimension.active = false;
+    pendingDimension.start = null;
+    pendingDimension.typeSelected = false;
+    if (stageCanvas) {
+      stageCanvas.classList.remove('cursor-crosshair');
+      stageCanvas.classList.add('cursor-normal');
+    }
+  }
 
   if (stageCanvas) {
     stageCanvas.addEventListener('dragover', (e) => {
@@ -1471,6 +1518,12 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const type = e.dataTransfer.getData('text/plain');
       if (!type) return;
+      if (type === 'dimension-line') return;
+
+      if (pendingDimension.active) {
+        resetDimensionMode();
+      }
+
       const areaRect = workArea.getBoundingClientRect();
       const x = e.clientX - areaRect.left;
       const y = e.clientY - areaRect.top;
@@ -1484,10 +1537,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const iconText = sourceIcon?.textContent.trim() || '';
 
       if (type === 'platform-2x1') {
-        // TARIMA 2x1 m EN ESCALA REAL
         const { pxPerM_X, pxPerM_Y } = getStageScale();
-        const wM = 2;  // 2 metros de ancho
-        const hM = 1;  // 1 metro de fondo
+        const wM = 2;
+        const hM = 1;
         draggedElement.dataset.widthMeters  = wM;
         draggedElement.dataset.heightMeters = hM;
         draggedElement.dataset.platform = '2x1';
@@ -1520,13 +1572,7 @@ document.addEventListener('DOMContentLoaded', () => {
         draggedElement.dataset.content = '';
         draggedElement.dataset.showLabel = '0';
         if (type === 'circle-shape') draggedElement.classList.add('shape-circle');
-        else if (type === 'line-shape') {
-          draggedElement.style.width = '150px';
-          draggedElement.style.height = '5px';
-          draggedElement.classList.add('shape-square');
-          draggedElement.style.borderRadius = '0';
-        } else draggedElement.classList.add('shape-square');
-
+        else draggedElement.classList.add('shape-square');
         draggedElement.dataset.colorUserSetBackground = '1';
       } else if (type === 'text') {
         draggedElement.style.width = 'fit-content';
@@ -1567,21 +1613,178 @@ document.addEventListener('DOMContentLoaded', () => {
 
       scheduleRiderPreview();
     });
+
+    stageCanvas.addEventListener('click', (e) => {
+      if (!pendingDimension.active || !pendingDimension.typeSelected) return;
+
+      const areaRect = workArea.getBoundingClientRect();
+      const x = e.clientX - areaRect.left;
+      const y = e.clientY - areaRect.top;
+
+      if (!pendingDimension.start) {
+        pendingDimension.start = { x, y };
+      } else {
+        const start = pendingDimension.start;
+        const end = { x, y };
+        createDimensionLineFromPoints(start, end);
+        pendingDimension.active = false;
+        pendingDimension.start = null;
+        pendingDimension.typeSelected = false;
+
+        if (stageCanvas) {
+          stageCanvas.classList.remove('cursor-crosshair');
+          stageCanvas.classList.add('cursor-normal');
+        }
+      }
+    });
+  }
+
+  function createDimensionLineFromPoints(start, end) {
+    if (!workArea) return;
+
+    const el = document.createElement('div');
+    el.className = 'stage-element dimension-line';
+    el.dataset.type = 'dimension-line';
+    el.dataset.content = '2 m';
+    el.dataset.showLabel = '1';
+
+    el.dataset.startX = start.x;
+    el.dataset.startY = start.y;
+    el.dataset.endX = end.x;
+    el.dataset.endY = end.y;
+
+    updateDimensionLineGeometry(el);
+
+    const inner = document.createElement('div');
+    inner.className = 'dimension-line-inner';
+
+    const base = document.createElement('div');
+    base.className = 'dimension-line-base';
+
+    const leftEnd = document.createElement('div');
+    leftEnd.className = 'dimension-line-end left';
+
+    const rightEnd = document.createElement('div');
+    rightEnd.className = 'dimension-line-end right';
+
+    const label = document.createElement('div');
+    label.className = 'dimension-line-label';
+    label.textContent = '2 m';
+
+    const handleStart = document.createElement('div');
+    handleStart.className = 'dimension-handle dimension-handle-start';
+
+    const handleEnd = document.createElement('div');
+    handleEnd.className = 'dimension-handle dimension-handle-end';
+
+    inner.appendChild(base);
+    inner.appendChild(leftEnd);
+    inner.appendChild(rightEnd);
+    inner.appendChild(label);
+    inner.appendChild(handleStart);
+    inner.appendChild(handleEnd);
+    el.appendChild(inner);
+
+    el.dataset.elementId = `element-${iconCounter++}`;
+
+    workArea.appendChild(el);
+    setupElementInteractions(el);
+    attachDimensionHandleEvents(el);
+    selectSingleElement(el, { clearOthers: true });
+
+    const placeholder = workArea.querySelector('.canvas-placeholder');
+    if (placeholder) placeholder.remove();
+
+    scheduleRiderPreview();
+  }
+
+  function updateDimensionLineGeometry(el) {
+    const startX = parseFloat(el.dataset.startX);
+    const startY = parseFloat(el.dataset.startY);
+    const endX = parseFloat(el.dataset.endX);
+    const endY = parseFloat(el.dataset.endY);
+
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const length = Math.sqrt(dx * dx + dy * dy) || 1;
+    const angleRad = Math.atan2(dy, dx);
+    const angleDeg = angleRad * (180 / Math.PI);
+
+    const centerX = (startX + endX) / 2;
+    const centerY = (startY + endY) / 2;
+
+    const width = length;
+    const height = 30;
+
+    el.style.width = `${width}px`;
+    el.style.height = `${height}px`;
+    el.style.left = `${centerX - width / 2}px`;
+    el.style.top = `${centerY - height / 2}px`;
+    el.style.backgroundColor = 'transparent';
+    el.style.border = 'none';
+    el.style.color = '#000000';
+    el.style.zIndex = '10';
+    el.style.transform = `rotate(${angleDeg}deg)`;
+    el.dataset.rotation = angleDeg.toString();
+    el.dataset.scale = '1.0';
+  }
+
+  function attachDimensionHandleEvents(el) {
+    const handleStart = el.querySelector('.dimension-handle-start');
+    const handleEnd = el.querySelector('.dimension-handle-end');
+    if (!handleStart || !handleEnd) return;
+
+    const onMouseDownHandle = (handleType) => (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      if (el.dataset.locked === '1') return;
+
+      const startX = parseFloat(el.dataset.startX);
+      const startY = parseFloat(el.dataset.startY);
+      const endX = parseFloat(el.dataset.endX);
+      const endY = parseFloat(el.dataset.endY);
+
+      dimensionDrag.active = true;
+      dimensionDrag.element = el;
+      dimensionDrag.handle = handleType;
+      dimensionDrag.startMouse.x = e.clientX;
+      dimensionDrag.startMouse.y = e.clientY;
+      dimensionDrag.startStart.x = startX;
+      dimensionDrag.startStart.y = startY;
+      dimensionDrag.startEnd.x = endX;
+      dimensionDrag.startEnd.y = endY;
+    };
+
+    handleStart.addEventListener('mousedown', onMouseDownHandle('start'));
+    handleEnd.addEventListener('mousedown', onMouseDownHandle('end'));
   }
 
   // ---------------- Element interactivity ----------------
   function getElementTextContent(element) {
+    if (element.dataset.type === 'dimension-line') {
+      const lbl = element.querySelector('.dimension-line-label');
+      return (lbl?.textContent || '').trim();
+    }
     return (element.dataset.content || '').toString().trim();
   }
   function setElementTextContent(element, newText) {
     newText = newText || '';
     element.dataset.content = newText;
-    updateElementLabelDisplay(element);
-    element.setAttribute('contenteditable', 'false');
+    if (element.dataset.type === 'dimension-line') {
+      const lbl = element.querySelector('.dimension-line-label');
+      if (lbl) lbl.textContent = newText;
+    } else {
+      updateElementLabelDisplay(element);
+      element.setAttribute('contenteditable', 'false');
+    }
   }
 
   function updateElementLabelDisplay(element) {
     if (!element) return;
+    if (element.dataset.type === 'dimension-line') {
+      return;
+    }
     const existing = element.querySelector('.element-label');
     if (existing) existing.remove();
 
@@ -1686,8 +1889,37 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // ---------------- Global drag handlers ----------------
+  // ---------------- Global mouse handlers ----------------
   function onDocMouseMove(e) {
+    if (dimensionDrag.active && dimensionDrag.element) {
+      const el = dimensionDrag.element;
+      const handle = dimensionDrag.handle;
+      const dx = e.clientX - dimensionDrag.startMouse.x;
+      const dy = e.clientY - dimensionDrag.startMouse.y;
+
+      if (el.dataset.locked === '1') {
+        dimensionDrag.active = false;
+        return;
+      }
+
+      let newX, newY;
+      if (handle === 'start') {
+        newX = dimensionDrag.startStart.x + dx;
+        newY = dimensionDrag.startStart.y + dy;
+        el.dataset.startX = newX;
+        el.dataset.startY = newY;
+      } else if (handle === 'end') {
+        newX = dimensionDrag.startEnd.x + dx;
+        newY = dimensionDrag.startEnd.y + dy;
+        el.dataset.endX = newX;
+        el.dataset.endY = newY;
+      }
+
+      updateDimensionLineGeometry(el);
+      scheduleRiderPreview();
+      return;
+    }
+
     if (!dragState.active) return;
     const anyResizing = document.querySelector('.stage-element.resizing');
     const anyRotating = document.querySelector('.stage-element.rotating');
@@ -1697,6 +1929,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const dx = e.clientX - dragState.startMouse.x;
       const dy = e.clientY - dragState.startMouse.y;
       dragState.initialPositions.forEach((pos, el) => {
+        if (el.dataset.locked === '1') return;
         let newLeft = pos.left + dx;
         let newTop  = pos.top  + dy;
         const clamped = clampToCanvas(el, newLeft, newTop);
@@ -1705,7 +1938,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     } else {
       const el = dragState.element;
-      if (!el) return;
+      if (!el || el.dataset.locked === '1') return;
       const areaRect = workArea.getBoundingClientRect();
       let newLeft = e.clientX - areaRect.left - dragState.offset.x;
       let newTop  = e.clientY - areaRect.top  - dragState.offset.y;
@@ -1717,6 +1950,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function onDocMouseUp() {
+    if (dimensionDrag.active) {
+      dimensionDrag.active = false;
+      dimensionDrag.element = null;
+      dimensionDrag.handle = null;
+    }
     if (!dragState.active) return;
     if (dragState.element) dragState.element.classList.remove('dragging');
     dragState.active = false;
@@ -1734,8 +1972,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!element.style.left) element.style.left = '0px';
     if (!element.style.top) element.style.top = '0px';
 
+    if (element.dataset.locked === '1') {
+      element.classList.add('locked');
+    }
+
+    if (element.dataset.type === 'dimension-line') {
+      attachDimensionHandleEvents(element);
+    }
+
     element.addEventListener('mousedown', (e) => {
-      if (e.target.classList.contains('resizer') || e.target.classList.contains('rotator')) return;
+      if (e.target.classList.contains('resizer') ||
+          e.target.classList.contains('rotator') ||
+          e.target.classList.contains('dimension-handle')) return;
       e.stopPropagation();
 
       const isMultiKey = (e.ctrlKey || e.metaKey);
@@ -1751,6 +1999,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (element.getAttribute('contenteditable') === 'true' && element === document.activeElement) return;
+      if (element.dataset.locked === '1') return;
 
       dragState.active = true;
       dragState.element = element;
@@ -1779,9 +2028,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     element.addEventListener('click', (e) => e.stopPropagation());
 
-    if (!element.dataset.type?.endsWith('-shape')) {
+    if (element.dataset.type === 'dimension-line') {
       element.addEventListener('dblclick', (e) => {
         e.stopPropagation();
+        if (element.dataset.locked === '1') return;
+        const label = element.querySelector('.dimension-line-label');
+        if (!label) return;
+        const current = label.textContent.trim();
+        const nuevo = prompt('Texto de la cota (ej: "2 m"):', current);
+        if (nuevo !== null) {
+          label.textContent = nuevo;
+          element.dataset.content = nuevo;
+          if (selectedElement === element && elementNameInput) {
+            elementNameInput.value = nuevo;
+            selectedElementTitle.textContent = nuevo || 'Elemento Seleccionado';
+          }
+          scheduleRiderPreview();
+        }
+      });
+    } else if (!element.dataset.type?.endsWith('-shape')) {
+      element.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        if (element.dataset.locked === '1') return;
         if (selectedElements.size > 1 && selectedElements.has(element)) {
           selectSingleElement(element, { clearOthers: false });
         } else {
@@ -1814,6 +2082,9 @@ document.addEventListener('DOMContentLoaded', () => {
           showLabelCheckbox.checked =
             element.dataset.showLabel === '1' || element.dataset.showLabel === 'true';
         }
+        if (lockElementCheckbox) {
+          lockElementCheckbox.checked = element.dataset.locked === '1';
+        }
       }
       scheduleRiderPreview();
     });
@@ -1825,17 +2096,22 @@ document.addEventListener('DOMContentLoaded', () => {
   function addTransformationHandles(element) {
     element.querySelectorAll('.resizer, .rotator').forEach(h => h.remove());
 
-    if (element.dataset.platform !== '2x1') {
+    if (element.dataset.platform !== '2x1' &&
+        element.dataset.type !== 'dimension-line' &&
+        element.dataset.locked !== '1') {
       const resizerBR = document.createElement('div');
       resizerBR.className = 'resizer bottom-right';
       element.appendChild(resizerBR);
       setupResizing(element, resizerBR);
     }
 
-    const rotator = document.createElement('div');
-    rotator.className = 'rotator';
-    element.appendChild(rotator);
-    setupRotation(element, rotator);
+    if (element.dataset.type !== 'dimension-line' &&
+        element.dataset.locked !== '1') {
+      const rotator = document.createElement('div');
+      rotator.className = 'rotator';
+      element.appendChild(rotator);
+      setupRotation(element, rotator);
+    }
 
     if (element.style.width === 'fit-content') element.style.width = `${element.offsetWidth}px`;
     if (element.style.height === 'fit-content') element.style.height = `${element.offsetHeight}px`;
@@ -1844,7 +2120,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function setupResizing(element, handle) {
-    if (element.dataset.platform === '2x1') return; // mantenemos tarima a escala fija (no resize manual)
+    if (element.dataset.platform === '2x1') return;
 
     let startX, startY, startW, startH, startScale;
     const isShape = element.dataset.type?.endsWith('-shape');
@@ -1852,17 +2128,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const onDown = (e) => {
       e.stopPropagation();
       e.preventDefault();
+      if (element.dataset.locked === '1') return;
       element.classList.add('resizing');
       element.classList.add('dragging');
       startX = e.clientX;
       startY = e.clientY;
-      if (!isShape) {
+      if (isShape) {
+        startW = parseFloat(element.style.width) || element.offsetWidth;
+        startH = parseFloat(element.style.height) || element.offsetHeight;
+      } else {
         startW = element.offsetWidth;
         startH = element.offsetHeight;
         startScale = parseFloat(element.dataset.scale) || 1.0;
-      } else {
-        startW = parseFloat(element.style.width) || element.offsetWidth;
-        startH = parseFloat(element.style.height) || element.offsetHeight;
       }
       const onMove = (ev) => {
         const dx = ev.clientX - startX;
@@ -1898,6 +2175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const onDown = (e) => {
       e.stopPropagation();
       e.preventDefault();
+      if (element.dataset.locked === '1') return;
       element.classList.add('rotating');
       element.classList.add('dragging');
 
@@ -1911,7 +2189,8 @@ document.addEventListener('DOMContentLoaded', () => {
         element.dataset.rotation = angleDeg;
         const currentScale = element.dataset.scale || '1.0';
         let transformValue = `rotate(${angleDeg}deg)`;
-        if (element.dataset.type?.endsWith('-shape') && element.dataset.type !== 'line-shape') {
+        if (element.dataset.type?.endsWith('-shape') &&
+            element.dataset.type !== 'line-shape') {
           transformValue += ` scale(${currentScale})`;
         }
         element.style.transform = transformValue;
@@ -1940,11 +2219,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (configPanel) configPanel.querySelector('.config-placeholder').style.display = 'none';
     const currentBackgroundColor = element.style.backgroundColor || 'transparent';
     const isShape = element.dataset.type?.endsWith('-shape');
+    const isDimension = element.dataset.type === 'dimension-line';
 
     const colorToDisplay =
       (element.dataset.platform === '2x1')
         ? (currentBackgroundColor === 'transparent' ? '#cfcfcf' : currentBackgroundColor)
-        : (isShape
+        : (isShape || isDimension
             ? (currentBackgroundColor === 'transparent' ? '#007bff' : currentBackgroundColor)
             : (element.style.color || '#007bff'));
 
@@ -1952,6 +2232,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elementNameInput) {
       elementNameInput.value = elementText;
       elementNameInput.oninput = () => {
+        if (element.dataset.locked === '1') return;
         setElementTextContent(element, elementNameInput.value);
         if (selectedElementTitle) {
           selectedElementTitle.textContent = elementNameInput.value || 'Elemento Seleccionado';
@@ -1966,11 +2247,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (colorPicker) {
       colorPicker.value = rgbToHex(colorToDisplay);
       colorPicker.oninput = () => {
+        if (element.dataset.locked === '1') return;
         if (element.dataset.platform === '2x1') {
           element.style.backgroundColor = colorPicker.value;
           element.dataset.colorUserSetBackground = '1';
-        } else if (isShape) {
-          element.style.backgroundColor = colorPicker.value;
+        } else if (isShape || isDimension) {
+          element.style.color = colorPicker.value;
           element.dataset.colorUserSet = '1';
         } else {
           element.style.color = colorPicker.value;
@@ -1981,32 +2263,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (shapeSelector) {
-      shapeSelector.value =
-        element.classList.contains('shape-circle')
-          ? 'circle'
-          : (element.dataset.type === 'line-shape'
-              ? 'line'
-              : (element.style.backgroundColor && element.dataset.type?.endsWith('-shape')
-                  ? 'square'
-                  : 'square'));
-      shapeSelector.onchange = () => {
-        element.classList.remove('shape-square', 'shape-circle');
-        if (element.dataset.type?.endsWith('-shape') || element.style.backgroundColor !== 'transparent') {
-          if (shapeSelector.value === 'line') {
-            element.style.borderRadius = '0';
-          } else {
-            element.classList.add(`shape-${shapeSelector.value}`);
-            element.style.borderRadius = '';
+      if (isDimension) {
+        shapeSelector.value = 'line';
+        shapeSelector.disabled = true;
+      } else {
+        shapeSelector.disabled = false;
+        shapeSelector.value =
+          element.classList.contains('shape-circle')
+            ? 'circle'
+            : (element.dataset.type === 'line-shape'
+                ? 'line'
+                : (element.style.backgroundColor && element.dataset.type?.endsWith('-shape')
+                    ? 'square'
+                    : 'square'));
+        shapeSelector.onchange = () => {
+          if (element.dataset.locked === '1') {
+            shapeSelector.value =
+              element.classList.contains('shape-circle')
+                ? 'circle'
+                : (element.dataset.type === 'line-shape'
+                    ? 'line'
+                    : 'square');
+            return;
           }
-        }
-        scheduleRiderPreview();
-      };
+          element.classList.remove('shape-square', 'shape-circle');
+          if (element.dataset.type?.endsWith('-shape') || element.style.backgroundColor !== 'transparent') {
+            if (shapeSelector.value === 'line') {
+              element.style.borderRadius = '0';
+            } else {
+              element.classList.add(`shape-${shapeSelector.value}`);
+              element.style.borderRadius = '';
+            }
+          }
+          scheduleRiderPreview();
+        };
+      }
     }
 
     if (zIndexSelector) {
       const currentZIndex = element.style.zIndex || 10;
       zIndexSelector.value = currentZIndex;
       zIndexSelector.oninput = () => {
+        if (element.dataset.locked === '1') {
+          zIndexSelector.value = element.style.zIndex || currentZIndex;
+          return;
+        }
         element.style.zIndex = zIndexSelector.value;
         scheduleRiderPreview();
       };
@@ -2017,19 +2318,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const currentScale = parseFloat(element.dataset.scale || '1') || 1;
       scaleSelector.value = currentScale;
       scaleSelector.oninput = (e) => {
+        if (element.dataset.locked === '1') {
+          scaleSelector.value = element.dataset.scale || '1';
+          return;
+        }
         const newScale = parseFloat(e.target.value || '1') || 1;
         const rotation = parseFloat(element.dataset.rotation || '0') || 0;
         const isPlatform = element.dataset.platform === '2x1';
+        const isShapeLocal = element.dataset.type?.endsWith('-shape');
+        const isDimLocal = element.dataset.type === 'dimension-line';
 
         if (isPlatform) {
-          // Tarima: base 2x1 m, reescalada según metros
           const { pxPerM_X, pxPerM_Y } = getStageScale();
           const wM = parseFloat(element.dataset.widthMeters  || '2') || 2;
           const hM = parseFloat(element.dataset.heightMeters || '1') || 1;
           element.style.width  = `${wM * pxPerM_X * newScale}px`;
           element.style.height = `${hM * pxPerM_Y * newScale}px`;
           element.style.transform = `rotate(${rotation}deg)`;
-        } else if (isShape) {
+        } else if (isShapeLocal || isDimLocal) {
           if (element.dataset.type !== 'line-shape') {
             element.style.transform = `rotate(${rotation}deg) scale(${newScale})`;
           }
@@ -2044,21 +2350,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (showLabelCheckbox) {
-      showLabelCheckbox.checked =
-        element.dataset.showLabel === '1' || element.dataset.showLabel === 'true';
-      showLabelCheckbox.onchange = () => {
-        element.dataset.showLabel = showLabelCheckbox.checked ? '1' : '0';
-        updateElementLabelDisplay(element);
-        scheduleRiderPreview();
+      if (isDimension) {
+        showLabelCheckbox.checked = true;
+        showLabelCheckbox.disabled = true;
+      } else {
+        showLabelCheckbox.disabled = false;
+        showLabelCheckbox.checked =
+          element.dataset.showLabel === '1' || element.dataset.showLabel === 'true';
+        showLabelCheckbox.onchange = () => {
+          if (element.dataset.locked === '1') {
+            showLabelCheckbox.checked =
+              element.dataset.showLabel === '1' || element.dataset.showLabel === 'true';
+            return;
+          }
+          element.dataset.showLabel = showLabelCheckbox.checked ? '1' : '0';
+          updateElementLabelDisplay(element);
+          scheduleRiderPreview();
+        };
+      }
+    }
+
+    if (lockElementCheckbox) {
+      lockElementCheckbox.checked = element.dataset.locked === '1';
+      lockElementCheckbox.onchange = () => {
+        const locked = lockElementCheckbox.checked;
+        element.dataset.locked = locked ? '1' : '0';
+        element.classList.toggle('locked', locked);
       };
     }
 
     if (deleteElementBtn) {
       deleteElementBtn.onclick = () => {
         if (selectedElements.size > 1) {
-          selectedElements.forEach(el => el.remove());
+          const deletable = Array.from(selectedElements).filter(el => el.dataset.locked !== '1');
+          const lockedOnes = Array.from(selectedElements).filter(el => el.dataset.locked === '1');
+          if (lockedOnes.length && !deletable.length) {
+            alert('Hay elementos bloqueados seleccionados. No se pueden borrar hasta desbloquearlos.');
+            return;
+          }
+          deletable.forEach(el => el.remove());
           clearAllSelection();
         } else if (element) {
+          if (element.dataset.locked === '1') {
+            alert('Este elemento está bloqueado y no puede borrarse. Desbloquéalo primero.');
+            return;
+          }
           element.remove();
           clearAllSelection();
           if (workArea.querySelectorAll('.stage-element').length === 0) {
@@ -2144,6 +2480,19 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
       }
     }
+
+    // Atajo: Ctrl + L -> bloqueo / desbloqueo del elemento seleccionado
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
+      if (selectedElement) {
+        const locked = selectedElement.dataset.locked === '1';
+        selectedElement.dataset.locked = locked ? '0' : '1';
+        selectedElement.classList.toggle('locked', !locked);
+        if (lockElementCheckbox) {
+          lockElementCheckbox.checked = !locked;
+        }
+      }
+      e.preventDefault();
+    }
   });
 
   function serializeElementForClipboard(el) {
@@ -2182,7 +2531,7 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       style: {
         left: parseFloat(el.style.left) || 0,
-        top: parseFloat(el.style.top) || 0
+        top: parseFloat(el.style.top)  || 0
       },
       dataset: { ...el.dataset },
       classes: Array.from(el.classList).filter(c =>
@@ -2242,6 +2591,54 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    if (el.dataset.locked === '1') {
+      el.classList.add('locked');
+    }
+
+    if (el.dataset.type === 'dimension-line') {
+      if (!el.querySelector('.dimension-line-inner')) {
+        const text = data.dataset && data.dataset.content ? data.dataset.content : '2 m';
+
+        const inner = document.createElement('div');
+        inner.className = 'dimension-line-inner';
+        const base = document.createElement('div');
+        base.className = 'dimension-line-base';
+        const leftEnd = document.createElement('div');
+        leftEnd.className = 'dimension-line-end left';
+        const rightEnd = document.createElement('div');
+        rightEnd.className = 'dimension-line-end right';
+        const label = document.createElement('div');
+        label.className = 'dimension-line-label';
+        label.textContent = text;
+
+        const handleStart = document.createElement('div');
+        handleStart.className = 'dimension-handle dimension-handle-start';
+
+        const handleEnd = document.createElement('div');
+        handleEnd.className = 'dimension-handle dimension-handle-end';
+
+        inner.appendChild(base);
+        inner.appendChild(leftEnd);
+        inner.appendChild(rightEnd);
+        inner.appendChild(label);
+        inner.appendChild(handleStart);
+        inner.appendChild(handleEnd);
+
+        el.innerHTML = '';
+        el.appendChild(inner);
+
+        if (data.dataset && data.dataset.startX != null && data.dataset.startY != null &&
+            data.dataset.endX != null && data.dataset.endY != null) {
+          el.dataset.startX = data.dataset.startX;
+          el.dataset.startY = data.dataset.startY;
+          el.dataset.endX = data.dataset.endX;
+          el.dataset.endY = data.dataset.endY;
+          updateDimensionLineGeometry(el);
+        }
+      }
+      attachDimensionHandleEvents(el);
+    }
+
     workArea.appendChild(el);
     setupElementInteractions(el);
     selectSingleElement(el, { clearOthers: true });
@@ -2265,7 +2662,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => {
     if (e.target.closest('#element-config-panel') ||
         e.target.closest('.resizer') ||
-        e.target.closest('.rotator')) return;
+        e.target.closest('.rotator') ||
+        e.target.closest('.dimension-handle')) return;
     if (e.target.closest('.stage-element')) return;
     if (!e.target.closest('.stage-element')) clearAllSelection();
   });
@@ -2276,6 +2674,9 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedElement.blur();
       }
       clearAllSelection();
+      if (pendingDimension.active) {
+        resetDimensionMode();
+      }
     }
 
     const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
@@ -2290,6 +2691,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!isEditingText && selectedElements.size > 0) {
         const step = e.shiftKey ? 10 : 1;
         selectedElements.forEach(el => {
+          if (el.dataset.locked === '1') return;
           let left = parseFloat(el.style.left) || 0;
           let top  = parseFloat(el.style.top)  || 0;
           if (e.key === 'ArrowLeft')  left -= step;
@@ -2316,7 +2718,13 @@ document.addEventListener('DOMContentLoaded', () => {
          activeElement.isContentEditable === true);
       if (isEditingText) return;
       if (selectedElements.size > 0) {
-        selectedElements.forEach(el => el.remove());
+        const deletable = Array.from(selectedElements).filter(el => el.dataset.locked !== '1');
+        const lockedOnes = Array.from(selectedElements).filter(el => el.dataset.locked === '1');
+        if (!deletable.length && lockedOnes.length) {
+          alert('Los elementos seleccionados están bloqueados. Desbloquéalos antes de borrarlos.');
+          return;
+        }
+        deletable.forEach(el => el.remove());
         clearAllSelection();
         if (workArea.querySelectorAll('.stage-element').length === 0) {
           workArea.innerHTML =
@@ -2341,6 +2749,17 @@ document.addEventListener('DOMContentLoaded', () => {
           : parseFloat(element.style.height || element.offsetHeight);
       const computedBorder =
         element.style.border || window.getComputedStyle(element).border || '';
+
+      let contentToSave;
+      if (element.dataset.type === 'dimension-line') {
+        const lbl = element.querySelector('.dimension-line-label');
+        contentToSave = (lbl?.textContent || '').trim();
+      } else {
+        contentToSave = element.dataset.content || '';
+      }
+
+      const datasetCopy = { ...element.dataset };
+
       elements.push({
         type: element.dataset.type,
         x: parseFloat(element.style.left) || 0,
@@ -2353,12 +2772,12 @@ document.addEventListener('DOMContentLoaded', () => {
         zIndex: element.style.zIndex,
         rotation: element.dataset.rotation,
         scale: element.dataset.scale,
-        content: element.dataset.content || '',
+        content: contentToSave,
         classes: Array.from(element.classList).filter(c =>
           c !== 'stage-element' && c !== 'selected' &&
           c !== 'dragging' && c !== 'multi-selected'
         ),
-        dataset: { ...element.dataset },
+        dataset: datasetCopy,
         isCircle: element.classList.contains('shape-circle'),
         wasResized: element.dataset.wasResized === 'true'
       });
@@ -2503,7 +2922,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ---------------- Add Column UI ----------------
+   // ---------------- Add Column UI ----------------
   function askNewColumn(forTable = 'input') {
     const name = prompt('Nombre de la nueva columna (ej: Instrumento):');
     if (!name) return;
@@ -2702,7 +3121,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elementData.width) element.style.width = `${elementData.width}px`;
         if (elementData.height) element.style.height = `${elementData.height}px`;
 
-        if (!element.dataset.type?.endsWith('-shape')) {
+        if (!element.dataset.type?.endsWith('-shape') && element.dataset.type !== 'dimension-line') {
           element.style.width = elementData.width ? `${elementData.width}px` : 'fit-content';
           element.style.height = elementData.height ? `${elementData.height}px` : 'fit-content';
         }
@@ -2717,7 +3136,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (element.dataset.type === 'line-shape') {
           element.style.transform = `rotate(${elementData.rotation || 0}deg)`;
-        } else if (element.dataset.type?.endsWith('-shape') || isPlatform) {
+        } else if (element.dataset.type?.endsWith('-shape') || isPlatform || element.dataset.type === 'dimension-line') {
           element.style.transform = `rotate(${elementData.rotation || 0}deg)`;
         } else {
           element.style.fontSize = `${sizeValue}em`;
@@ -2743,6 +3162,61 @@ document.addEventListener('DOMContentLoaded', () => {
             img.style.maxHeight = elementData.height ? `${Math.min(200, elementData.height)}px` : '60px';
             element.appendChild(img);
           }
+        } else if (element.dataset.type === 'dimension-line') {
+          element.classList.add('dimension-line');
+          element.style.backgroundColor = 'transparent';
+          element.style.border = 'none';
+
+          if (elementData.dataset && elementData.dataset.startX != null &&
+              elementData.dataset.startY != null &&
+              elementData.dataset.endX != null &&
+              elementData.dataset.endY != null) {
+            element.dataset.startX = elementData.dataset.startX;
+            element.dataset.startY = elementData.dataset.startY;
+            element.dataset.endX = elementData.dataset.endX;
+            element.dataset.endY = elementData.dataset.endY;
+          } else {
+            const left = elementData.x || 0;
+            const top = elementData.y || 0;
+            const w = elementData.width || 100;
+            const cx = left + w / 2;
+            const cy = top + 15;
+            const angle = parseFloat(elementData.rotation || '0') * Math.PI / 180;
+            const half = (elementData.width || 100) / 2;
+            element.dataset.startX = cx - half * Math.cos(angle);
+            element.dataset.startY = cy - half * Math.sin(angle);
+            element.dataset.endX = cx + half * Math.cos(angle);
+            element.dataset.endY = cy + half * Math.sin(angle);
+          }
+
+          const inner = document.createElement('div');
+          inner.className = 'dimension-line-inner';
+          const base = document.createElement('div');
+          base.className = 'dimension-line-base';
+          const leftEnd = document.createElement('div');
+          leftEnd.className = 'dimension-line-end left';
+          const rightEnd = document.createElement('div');
+          rightEnd.className = 'dimension-line-end right';
+          const label = document.createElement('div');
+          label.className = 'dimension-line-label';
+          label.textContent = elementData.content || elementData.dataset?.content || '2 m';
+
+          const handleStart = document.createElement('div');
+          handleStart.className = 'dimension-handle dimension-handle-start';
+
+          const handleEnd = document.createElement('div');
+          handleEnd.className = 'dimension-handle dimension-handle-end';
+
+          inner.appendChild(base);
+          inner.appendChild(leftEnd);
+          inner.appendChild(rightEnd);
+          inner.appendChild(label);
+          inner.appendChild(handleStart);
+          inner.appendChild(handleEnd);
+          element.appendChild(inner);
+
+          updateDimensionLineGeometry(element);
+          attachDimensionHandleEvents(element);
         } else if (element.dataset.type !== 'text' && !element.dataset.type?.endsWith('-shape')) {
           const iconClass =
             document.querySelector(`.stage-icon[data-type="${elementData.type}"] i`)?.className;
@@ -2750,6 +3224,8 @@ document.addEventListener('DOMContentLoaded', () => {
             element.innerHTML = `<i class="${iconClass}"></i>`;
           }
           element.setAttribute('contenteditable', 'false');
+        } else if (element.dataset.type?.endsWith('-shape')) {
+          // Formas, sin texto
         } else {
           element.textContent = elementData.content || '';
           element.setAttribute('contenteditable', 'false');
@@ -2757,6 +3233,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (element.dataset.showLabel === '1' || element.dataset.showLabel === 'true') {
           updateElementLabelDisplay(element);
+        }
+
+        if (element.dataset.locked === '1') {
+          element.classList.add('locked');
         }
 
         element.dataset.elementId = `element-${iconCounter++}`;
@@ -2778,6 +3258,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mainNav) mainNav.style.display = 'none';
       body.classList.add('init-screen');
       if (preferencesScreen) preferencesScreen.classList.remove('active');
+      resetDimensionMode();
     });
   }
 
@@ -2916,12 +3397,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const rotation = parseFloat(origEl.dataset.rotation || '0') || 0;
       const scale = parseFloat(origEl.dataset.scale || '1') || 1;
       const isPlatform = origEl.dataset.platform === '2x1';
+      const isDim = origEl.dataset.type === 'dimension-line';
 
       if (origEl.dataset.type === 'line-shape') {
         el.style.transform = `rotate(${rotation}deg)`;
-      } else if (origEl.dataset.type && origEl.dataset.type.endsWith('-shape') && !isPlatform) {
-        el.style.transform = `rotate(${rotation}deg) scale(${scale})`;
-      } else if (isPlatform) {
+      } else if (origEl.dataset.type && (origEl.dataset.type.endsWith('-shape') || isPlatform || isDim)) {
         el.style.transform = `rotate(${rotation}deg)`;
       } else {
         el.style.fontSize = `${scale}em`;
@@ -2937,7 +3417,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const showIndividually =
         origEl.dataset &&
         (origEl.dataset.showLabel === '1' || origEl.dataset.showLabel === 'true');
-      if (labelsVisible && showIndividually && origEl.dataset && origEl.dataset.content) {
+      if (labelsVisible && showIndividually && origEl.dataset && origEl.dataset.content && origEl.dataset.type !== 'dimension-line') {
         const lbl = document.createElement('div');
         lbl.className = 'element-label';
         lbl.textContent = origEl.dataset.content || '';
@@ -2987,7 +3467,6 @@ document.addEventListener('DOMContentLoaded', () => {
     editorSection.innerHTML = riderEditor?.innerHTML || '';
     riderPreview.appendChild(editorSection);
 
-    // ---- Plano + nota bajo el plano ----
     const stageWrap = document.createElement('div');
     stageWrap.className = 'rider-section';
     const hStage = document.createElement('h3');
@@ -3012,7 +3491,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     riderPreview.appendChild(stageWrap);
 
-    // Lista de canales
     const inputsWrap = document.createElement('div');
     inputsWrap.className = 'rider-section';
     const hInputs = document.createElement('h3');
@@ -3024,7 +3502,6 @@ document.addEventListener('DOMContentLoaded', () => {
     inputsWrap.appendChild(serializedInputs);
     riderPreview.appendChild(inputsWrap);
 
-    // Envíos
     const sendsWrap = document.createElement('div');
     sendsWrap.className = 'rider-section';
     const hSends = document.createElement('h3');
@@ -3036,7 +3513,6 @@ document.addEventListener('DOMContentLoaded', () => {
     sendsWrap.appendChild(serializedSends);
     riderPreview.appendChild(sendsWrap);
 
-    // FOH
     const fohWrap = document.createElement('div');
     fohWrap.className = 'rider-section';
     const hFoh = document.createElement('h3');
@@ -3414,7 +3890,6 @@ ${sendsHTML}
       if (inputsChanged) initializeInputList(projectConfig.numInputChannels);
       if (sendsChanged)  initializeSendsList(projectConfig.numSends);
 
-      // REESCALAMOS TARIMAS SEGÚN EL NUEVO TAMAÑO DE ESCENARIO
       rescalePlatformsToStage();
 
       renderRulers();
