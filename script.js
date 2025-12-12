@@ -1687,10 +1687,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     el.dataset.elementId = `element-${iconCounter++}`;
 
-    workArea.appendChild(el);
+        workArea.appendChild(el);
     setupElementInteractions(el);
     attachDimensionHandleEvents(el);
     selectSingleElement(el, { clearOthers: true });
+
+    // Auto-calcular texto de la cota según longitud y escala
+    updateDimensionLineLabelFromGeometry(el);
 
     const placeholder = workArea.querySelector('.canvas-placeholder');
     if (placeholder) placeholder.remove();
@@ -1728,7 +1731,45 @@ document.addEventListener('DOMContentLoaded', () => {
     el.dataset.rotation = angleDeg.toString();
     el.dataset.scale = '1.0';
   }
+  // Calcula y actualiza el texto de la cota según la longitud y la escala del escenario
+  function updateDimensionLineLabelFromGeometry(el) {
+    if (!el || el.dataset.type !== 'dimension-line') return;
 
+    const startX = parseFloat(el.dataset.startX);
+    const startY = parseFloat(el.dataset.startY);
+    const endX = parseFloat(el.dataset.endX);
+    const endY = parseFloat(el.dataset.endY);
+
+    if (
+      isNaN(startX) || isNaN(startY) ||
+      isNaN(endX)   || isNaN(endY)
+    ) return;
+
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const lengthPx = Math.sqrt(dx*dx + dy*dy) || 0;
+
+    // Escala en píxeles/metro (media de X e Y)
+    const { pxPerM_X, pxPerM_Y } = getStageScale();
+    const pxPerM = (pxPerM_X + pxPerM_Y) / 2 || 1;
+
+    const lengthM = lengthPx / pxPerM;
+
+    let text;
+    if (lengthM < 1) {
+      const cm = Math.round(lengthM * 100);
+      text = `${cm} cm`;
+    } else {
+      const rounded = Math.round(lengthM * 100) / 100;
+      text = `${rounded.toString().replace('.', ',')} m`;
+    }
+
+    const label = el.querySelector('.dimension-line-label');
+    if (label) {
+      label.textContent = text;
+    }
+    el.dataset.content = text;
+  }
   function attachDimensionHandleEvents(el) {
     const handleStart = el.querySelector('.dimension-handle-start');
     const handleEnd = el.querySelector('.dimension-handle-end');
@@ -1916,6 +1957,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       updateDimensionLineGeometry(el);
+      updateDimensionLineLabelFromGeometry(el);
       scheduleRiderPreview();
       return;
     }
@@ -3216,6 +3258,7 @@ document.addEventListener('DOMContentLoaded', () => {
           element.appendChild(inner);
 
           updateDimensionLineGeometry(element);
+          updateDimensionLineLabelFromGeometry(element);
           attachDimensionHandleEvents(element);
         } else if (element.dataset.type !== 'text' && !element.dataset.type?.endsWith('-shape')) {
           const iconClass =
